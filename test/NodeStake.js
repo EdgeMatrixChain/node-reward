@@ -30,7 +30,7 @@ describe("NodeStake Contract V1", function () {
 
 
     // deploy NodeStake contract
-    const scheduleRelease = await hre.ethers.deployContract("ScheduledRelease", [rewardToken, 0]);
+    const scheduleRelease = await hre.ethers.deployContract("ReleaseVestingV1", [rewardToken, 0]);
     await scheduleRelease.waitForDeployment();
 
     // deploy NodeStake contract
@@ -142,10 +142,10 @@ describe("NodeStake Contract V1", function () {
     expect(tokenInPool).to.equal(hre.ethers.parseUnits("90", "ether"));
 
 
-    console.log("\n----staker1 releases 20 tokens from ScheduleRelease contract----");
+    console.log("\n----staker1 releases 20 tokens from ReleaseVestingV1 contract----");
     const now = await time.latest();
 
-    timeTo = now + 5 * ONE_DAY_IN_SECS + 15 * 60;
+    timeTo = now + 30 * ONE_DAY_IN_SECS + 15 * 60;
     await time.increaseTo(timeTo);
 
     staker1Pending = await scheduleRelease.balanceOf(staker1);

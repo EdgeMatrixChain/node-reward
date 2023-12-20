@@ -5,8 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 enum DurationUnits {
-    Day1,
-    Days5,
     Days30,
     Days90,
     Days180,
@@ -15,7 +13,7 @@ enum DurationUnits {
     Days1080
 }
 
-interface IScheduledRelease {
+interface IReleaseVesing {
     function createVestingSchedule(
         address _beneficiary,
         uint256 _start,
@@ -157,15 +155,18 @@ contract NodeStakeV1 {
             "withdraw: amount not good"
         );
 
-        require(node.beneficiary == msg.sender, "withdraw: beneficiary not good");
+        require(
+            node.beneficiary == msg.sender,
+            "withdraw: beneficiary not good"
+        );
 
         SafeERC20.safeIncreaseAllowance(token, releaseContract, _amount);
-        IScheduledRelease releaser = IScheduledRelease(releaseContract);
+        IReleaseVesing releaser = IReleaseVesing(releaseContract);
         releaser.createVestingSchedule(
             _beneficiary,
             block.timestamp + 15 * 60,
             1,
-            DurationUnits.Days5,
+            DurationUnits.Days30,
             _amount
         );
 
