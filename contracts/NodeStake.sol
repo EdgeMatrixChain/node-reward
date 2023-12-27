@@ -122,6 +122,12 @@ contract NodeStakeV1 {
 
         NodeInfo storage node = nodeInfo[_nodeId];
         if (_amount > 0) {
+            if (node.beneficiary != address(0)) {
+                require(
+                    node.beneficiary == msg.sender,
+                    "deposit: beneficiary not good"
+                );
+            }
             token.safeTransferFrom(msg.sender, address(this), _amount);
             node.amount = node.amount.add(_amount);
             node.beneficiary = msg.sender;

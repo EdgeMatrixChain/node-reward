@@ -38,7 +38,7 @@ describe("NodeStake Contract V1", function () {
     await nodeStake.waitForDeployment();
 
     await rewardToken.transfer(staker1, hre.ethers.parseUnits("30", 18));
-    await rewardToken.transfer(staker2, hre.ethers.parseUnits("80", 18));
+    await rewardToken.transfer(staker2, hre.ethers.parseUnits("81", 18));
 
     return { nodeStake, scheduleRelease, rewardToken, owner, staker1, staker2, manager };
   }
@@ -65,6 +65,10 @@ describe("NodeStake Contract V1", function () {
       .withArgs(staker1.address,
         BigInt(20e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
+
+    await rewardToken.connect(staker2).approve(nodeStake, BigInt(1e18));
+    await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(1e18)))
+      .to.be.revertedWith("deposit: beneficiary not good");
 
     staker1Balance = await nodeStake.balanceOf(staker1);
     console.log("staker1Balance:\t\t%d", ethers.formatUnits(staker1Balance, 18));
