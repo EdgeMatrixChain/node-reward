@@ -34,7 +34,7 @@ describe("NodeStake Contract V1", function () {
     await scheduleRelease.waitForDeployment();
 
     // deploy NodeStake contract
-    const nodeStake = await hre.ethers.deployContract("NodeStakeV1", [rewardToken, scheduleRelease]);
+    const nodeStake = await hre.ethers.deployContract("NodeStakeV1", [rewardToken, scheduleRelease, manager]);
     await nodeStake.waitForDeployment();
 
     await rewardToken.transfer(staker1, hre.ethers.parseUnits("30", 18));
@@ -54,10 +54,24 @@ describe("NodeStake Contract V1", function () {
 
     // deposit tokens 
     console.log("\n----staker1 deposits 30 tokens----");
+
+    // dataHash = ethers.solidityPackedKeccak256(['address', 'string'], [staker1.address.toLowerCase(), "a01231"]);
+    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", "a01231", makeBindSign(manager, staker1.address.toLowerCase(), "a01231")))
+    .to.emit(nodeStake, "Bind")
+    .withArgs(staker1.address,
+      "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+
+
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(5e18));
     await nodeStake.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(5e18));
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(5e18));
     await nodeStake.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(5e18));
+
+
+    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", "a01232", makeBindSign(manager, staker1.address.toLowerCase(), "a01232")))
+    .to.emit(nodeStake, "Bind")
+    .withArgs(staker1.address,
+      "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(20e18));
     await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(20e18)))
@@ -65,6 +79,7 @@ describe("NodeStake Contract V1", function () {
       .withArgs(staker1.address,
         BigInt(20e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
+
 
     await rewardToken.connect(staker2).approve(nodeStake, BigInt(1e18));
     await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(1e18)))
@@ -88,6 +103,9 @@ describe("NodeStake Contract V1", function () {
 
 
     console.log("\n----staker1 withdraws 20 ether----");
+    await expect(
+      nodeStake.connect(staker2).withdraw("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker2, hre.ethers.parseUnits("20", "ether"))
+    ).to.be.revertedWith("withdraw: beneficiary not good");
     await expect(
       nodeStake.connect(staker1).withdraw("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1, hre.ethers.parseUnits("21", "ether"))
     ).to.be.revertedWith("withdraw: amount not good");
@@ -126,6 +144,7 @@ describe("NodeStake Contract V1", function () {
 
 
     console.log("\n----staker2 deposits 80 tokens----");
+    await nodeStake.connect(staker2).bindNode("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT", "a01233", makeBindSign(manager, staker2.address.toLowerCase(), "a01233"));
     await rewardToken.connect(staker2).approve(nodeStake, BigInt(80e18));
     await nodeStake.connect(staker2).deposit("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT", BigInt(80e18));
 
@@ -186,4 +205,13 @@ describe("NodeStake Contract V1", function () {
 });
 
 
+
+async function makeBindSign(manager, caller, nonce) {
+  signature = '';
+  // dataHash = ethers.solidityPackedKeccak256(['address', 'string'], [staker.address.toLowerCase(), "abc012"]);
+  dataHash = ethers.solidityPackedKeccak256(['address', 'string'], [caller, nonce]);
+  messageBytes = ethers.getBytes(dataHash);
+  signature = await manager.signMessage(messageBytes);
+  return signature;
+}
 
