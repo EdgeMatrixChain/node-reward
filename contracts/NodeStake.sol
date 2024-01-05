@@ -100,7 +100,6 @@ contract NodeStakeV1 {
         _;
     }
 
-
     /**
      * @notice Verify address signature
      */
@@ -150,12 +149,14 @@ contract NodeStakeV1 {
         require(bytes(_nodeId).length > 0, "deposit: nodeId not good");
 
         require(_amount >= minLimit, "less than minimum limit");
+
+        NodeInfo storage node = nodeInfo[_nodeId];
+
         require(
-            maxLimit == 0 || _amount <= maxLimit,
+            maxLimit == 0 || _amount.add(node.amount) <= maxLimit,
             "greater than maximum limit"
         );
 
-        NodeInfo storage node = nodeInfo[_nodeId];
         require(
             node.beneficiary == msg.sender,
             "deposit: beneficiary not good"
