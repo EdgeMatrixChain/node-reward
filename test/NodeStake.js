@@ -51,15 +51,19 @@ describe("NodeStake Contract V1", function () {
       deployContractFixture
     );
 
+    await expect(nodeStake.connect(staker1).setLimit(BigInt(5e18), BigInt(30e18)))
+      .to.be.revertedWith("caller is not the manager");
+
+    await nodeStake.connect(manager).setLimit(BigInt(5e18), BigInt(80e18));
 
     // deposit tokens 
     console.log("\n----staker1 deposits 30 tokens----");
 
     // dataHash = ethers.solidityPackedKeccak256(['address', 'string'], [staker1.address.toLowerCase(), "a01231"]);
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", "a01231", makeBindSign(manager, staker1.address.toLowerCase(), "a01231")))
-    .to.emit(nodeStake, "Bind")
-    .withArgs(staker1.address,
-      "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeStake, "Bind")
+      .withArgs(staker1.address,
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
 
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(5e18));
@@ -67,11 +71,10 @@ describe("NodeStake Contract V1", function () {
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(5e18));
     await nodeStake.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(5e18));
 
-
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", "a01232", makeBindSign(manager, staker1.address.toLowerCase(), "a01232")))
-    .to.emit(nodeStake, "Bind")
-    .withArgs(staker1.address,
-      "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
+    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1.address, "a01232", makeBindSign(manager, '16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG', staker1.address.toLowerCase(), "a01232")))
+      .to.emit(nodeStake, "Bind")
+      .withArgs(staker1.address,
+        "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(20e18));
     await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(20e18)))
@@ -83,6 +86,14 @@ describe("NodeStake Contract V1", function () {
 
     await rewardToken.connect(staker2).approve(nodeStake, BigInt(1e18));
     await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(1e18)))
+      .to.be.revertedWith("deposit: less than minimum limit");
+
+    await rewardToken.connect(staker2).approve(nodeStake, BigInt(81e18));
+    await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(81e18)))
+      .to.be.revertedWith("deposit: greater than maximum limit");
+
+    await rewardToken.connect(staker2).approve(nodeStake, BigInt(5e18));
+    await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(5e18)))
       .to.be.revertedWith("deposit: beneficiary not good");
 
     staker1Balance = await nodeStake.balanceOf(staker1);
@@ -144,13 +155,17 @@ describe("NodeStake Contract V1", function () {
 
 
     console.log("\n----staker2 deposits 80 tokens----");
-    await nodeStake.connect(staker2).bindNode("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT", "a01233", makeBindSign(manager, staker2.address.toLowerCase(), "a01233"));
+    await nodeStake.connect(staker2).bindNode("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT", staker2.address, "a01233", makeBindSign(manager, '16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT', staker2.address.toLowerCase(), "a01233"));
     await rewardToken.connect(staker2).approve(nodeStake, BigInt(80e18));
     await nodeStake.connect(staker2).deposit("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT", BigInt(80e18));
 
     node3Balance = await nodeStake.balanceOfNode("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT");
     console.log("node3Balance:\t\t%d", ethers.formatUnits(node3Balance, 18));
     expect(node3Balance).to.equal(hre.ethers.parseUnits("80", "ether"));
+
+    await rewardToken.connect(staker2).approve(nodeStake, BigInt(5e18));
+    await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT", BigInt(5e18)))
+      .to.be.revertedWith("deposit: greater than maximum limit");
 
     staker1Balance = await nodeStake.balanceOf(staker1);
     console.log("staker1Balance:\t\t%d", ethers.formatUnits(staker1Balance, 18));
@@ -206,10 +221,16 @@ describe("NodeStake Contract V1", function () {
 
 
 
-async function makeBindSign(manager, caller, nonce) {
+async function makeBindSign(manager,nodeId, caller, nonce) {
+  chainId = await hre.network.config.chainId;
+  console.log("chainId:\t\t%d", chainId);
   signature = '';
-  // dataHash = ethers.solidityPackedKeccak256(['address', 'string'], [staker.address.toLowerCase(), "abc012"]);
-  dataHash = ethers.solidityPackedKeccak256(['address', 'string'], [caller, nonce]);
+  dataHash = ethers.solidityPackedKeccak256(['uint256', 'address', 'string', 'string'], [chainId, caller, nodeId, nonce]);
+  // dataHash = ethers.solidityPackedKeccak256(['bytes'],[ethers.solidityPackedKeccak256(['uint256', 'address', 'string', 'string'], [chainId, caller, nodeId, nonce])]);
+
+  // encodePacked =  ethers.concat([ ethers.solidityPackedKeccak256(['uint256', 'address', 'string', 'string'], [chainId, caller, nodeId, nonce]) ])
+  // dataHash = ethers.keccak256(encodePacked)
+
   messageBytes = ethers.getBytes(dataHash);
   signature = await manager.signMessage(messageBytes);
   return signature;

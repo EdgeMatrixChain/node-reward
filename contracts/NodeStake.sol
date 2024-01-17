@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
+// EMC Foundation
+// EMC (EdgeMatrix Computing) is a decentralized computing network in the AI era.
+
 pragma solidity ^0.8.0;
 
 // import "@openzeppelin/contracts@4.9.3/token/ERC20/utils/SafeERC20.sol";
 // import "@openzeppelin/contracts@4.9.3/utils/math/SafeMath.sol";
 // import "@openzeppelin/contracts@4.9.3/utils/cryptography/ECDSA.sol";
+// import "@openzeppelin/contracts@4.9.3/security/ReentrancyGuard.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 enum DurationUnits {
     Days30,
@@ -19,6 +24,8 @@ enum DurationUnits {
 }
 
 interface IReleaseVesing {
+    function minStartDays() external view returns (uint);
+
     function createVestingSchedule(
         address _beneficiary,
         uint256 _start,
@@ -28,16 +35,16 @@ interface IReleaseVesing {
     ) external;
 }
 
-contract NodeStakeV1 {
+contract NodeStakeV1 is ReentrancyGuard{
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
-    IERC20 public immutable token; //Token's contract address for reward
+    IERC20 public immutable token; //Token's contract address for reward. Will be designated as EMC token (has been audited) contract address
 
-    address public immutable releaseContract; //contract address for release
+    address public immutable releaseContract; //contract address for release. Will be designated as ReleaseVestingV1 (has been audited) contract address
 
-    uint256 public tokenInPool; // amount of token in pool
+    uint256 public tokenInPool; // total statked amount
 
     address public manager; // address of the manager
 
@@ -103,10 +110,26 @@ contract NodeStakeV1 {
     /**
      * @notice Verify address signature
      */
-    modifier verifyAddressSigner(string memory nonce, bytes memory signature) {
+    modifier verifyAddressSigner(
+        string memory nodeId,
+        string memory nonce,
+        bytes memory signature
+    ) {
         require(!verifiedState[nonce], "signature validation failed");
 
-        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, nonce));
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(block.chainid, msg.sender,  nodeId, nonce)
+        );
+
+        // bytes32 messageHash = keccak256(
+        //     abi.encode(block.chainid, msg.sender,  nodeId, nonce)
+        // );
+
+        // bytes32 messageHash = keccak256(
+        //     bytes.concat(
+        //         keccak256(abi.encode(block.chainid, msg.sender,  nodeId, nonce))
+        //     )
+        // );
         require(
             manager == messageHash.toEthSignedMessageHash().recover(signature),
             "signature validation failed"
@@ -116,6 +139,10 @@ contract NodeStakeV1 {
     }
 
     constructor(address _token, address _releaseContract, address _manager) {
+        require(_token != address(0), "_token is the zero address");
+        require(_releaseContract != address(0), "_releaseContract is the zero address");
+        require(_manager != address(0), "_manager is the zero address");
+
         token = IERC20(_token);
         releaseContract = _releaseContract;
         manager = _manager;
@@ -124,8 +151,11 @@ contract NodeStakeV1 {
 
     // update limit.
     function setLimit(uint256 _minLimit, uint256 _maxLimit) public onlyManager {
-        maxLimit = _maxLimit;
+        if (_maxLimit != 0) {
+            require(_minLimit < _maxLimit, "error input _minLimit value");
+        }
         minLimit = _minLimit;
+        maxLimit = _maxLimit;
     }
 
     // update canDeposit state.
@@ -137,6 +167,7 @@ contract NodeStakeV1 {
 
     // Update the manager.
     function setManager(address _manager) public onlyManager {
+        require(_manager != address(0), "_manager is the zero address");
         manager = _manager;
     }
 
@@ -144,17 +175,17 @@ contract NodeStakeV1 {
     function deposit(
         string memory _nodeId,
         uint256 _amount
-    ) public checkTokenAllowance(_amount) onlyCanDeposit {
+    ) public checkTokenAllowance(_amount) onlyCanDeposit nonReentrant {
         require(_amount > 0, "deposit: amount not good");
         require(bytes(_nodeId).length > 0, "deposit: nodeId not good");
 
-        require(_amount >= minLimit, "less than minimum limit");
+        require(_amount >= minLimit, "deposit: less than minimum limit");
 
         NodeInfo storage node = nodeInfo[_nodeId];
 
         require(
             maxLimit == 0 || _amount.add(node.amount) <= maxLimit,
-            "greater than maximum limit"
+            "deposit: greater than maximum limit"
         );
 
         require(
@@ -163,6 +194,7 @@ contract NodeStakeV1 {
         );
 
         token.safeTransferFrom(msg.sender, address(this), _amount);
+
         node.amount = node.amount.add(_amount);
         node.accumulated = node.accumulated.add(_amount);
         tokenInPool = tokenInPool.add(_amount);
@@ -176,15 +208,25 @@ contract NodeStakeV1 {
     // Bind  beneficiary to node
     function bindNode(
         string memory _nodeId,
+        address _beneficiary,
         string memory _nonce,
         bytes memory _signature
-    ) public onlyCanDeposit verifyAddressSigner(_nonce, _signature) {
-        require(bytes(_nodeId).length > 0, "deposit: nodeId not good");
+    ) public onlyCanDeposit verifyAddressSigner(_nodeId, _nonce, _signature) {
+        require(bytes(_nodeId).length > 0, "bindNode: nodeId not good");
+
+        require(
+            _beneficiary != address(0),
+            "bindNode: _owner is the zero address"
+        );
 
         NodeInfo storage node = nodeInfo[_nodeId];
-        node.beneficiary = msg.sender;
+        require(
+            node.beneficiary == address(0) || node.beneficiary == msg.sender,
+            "bindNode: beneficiary is the zero address"
+        );
+        node.beneficiary = _beneficiary;
 
-        emit Bind(msg.sender, _nodeId);
+        emit Bind(_beneficiary, _nodeId);
     }
 
     // Withdraw rwa tokens from contract.
@@ -192,7 +234,7 @@ contract NodeStakeV1 {
         string memory _nodeId,
         address _beneficiary,
         uint256 _amount
-    ) public {
+    ) public nonReentrant {
         require(
             _beneficiary != address(0),
             "withdraw: beneficiary is the zero address"
@@ -211,16 +253,6 @@ contract NodeStakeV1 {
             "withdraw: beneficiary not good"
         );
 
-        SafeERC20.safeIncreaseAllowance(token, releaseContract, _amount);
-        IReleaseVesing releaser = IReleaseVesing(releaseContract);
-        releaser.createVestingSchedule(
-            _beneficiary,
-            block.timestamp + 15 * 60,
-            1,
-            DurationUnits.Days30,
-            _amount
-        );
-
         node.amount = node.amount.sub(_amount);
         tokenInPool = tokenInPool.sub(_amount);
         node.debt = node.debt.add(_amount);
@@ -228,6 +260,18 @@ contract NodeStakeV1 {
         AccountInfo storage stakerAccount = accountInfo[msg.sender];
         stakerAccount.amount = stakerAccount.amount.sub(_amount);
         stakerAccount.debt = stakerAccount.debt.add(_amount);
+
+        SafeERC20.safeIncreaseAllowance(token, releaseContract, _amount);
+        IReleaseVesing releaser = IReleaseVesing(releaseContract);
+
+        uint minStartDays = releaser.minStartDays();
+        releaser.createVestingSchedule(
+            _beneficiary,
+            block.timestamp + minStartDays * 1 days + 15 * 60,
+            1,
+            DurationUnits.Days30,
+            _amount
+        );
 
         emit Withdrawed(msg.sender, _amount, _nodeId);
     }
