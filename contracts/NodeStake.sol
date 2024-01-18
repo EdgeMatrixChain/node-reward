@@ -264,7 +264,7 @@ contract NodeStakeV1 is ReentrancyGuard{
         SafeERC20.safeIncreaseAllowance(token, releaseContract, _amount);
         IReleaseVesing releaser = IReleaseVesing(releaseContract);
 
-        uint minStartDays = releaser.minStartDays();
+        uint256 minStartDays = releaser.minStartDays();
         releaser.createVestingSchedule(
             _beneficiary,
             block.timestamp + minStartDays * 1 days + 15 * 60,
