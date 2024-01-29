@@ -43,6 +43,51 @@ describe("NodeStake Contract V1", function () {
     return { nodeStake, scheduleRelease, rewardToken, owner, staker1, staker2, manager };
   }
 
+  it("Should claim reward", async function () {
+    const { nodeStake, scheduleRelease, rewardToken, owner, staker1, staker2, manager } = await loadFixture(
+      deployContractFixture
+    );
+
+    await rewardToken.transfer(nodeStake, hre.ethers.parseUnits("100", 18));
+
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
+      hre.ethers.parseUnits("50", 18),
+      staker1.address,
+      "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+      "c0001",
+      makeClaimSign(
+        manager,
+        hre.ethers.parseUnits("10", 18),
+        staker1.address,
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0001")))
+      .to.be.revertedWith("verifyClaimSigner: signature validation failed");
+      
+    staker1TokenBalance = await rewardToken.balanceOf(staker1);
+    console.log("staker1TokenBalance:\t%d", ethers.formatUnits(staker1TokenBalance, 18));
+    expect(staker1TokenBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
+
+
+    await nodeStake.connect(staker1).ClaimWithSignature(
+      hre.ethers.parseUnits("50", 18),
+      staker1.address,
+      "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+      "c0001",
+      makeClaimSign(
+        manager,
+        hre.ethers.parseUnits("50", 18),
+        staker1.address,
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0001"));
+
+
+    staker1TokenBalance = await rewardToken.balanceOf(staker1);
+    console.log("staker1TokenBalance:\t%d", ethers.formatUnits(staker1TokenBalance, 18));
+    expect(staker1TokenBalance).to.equal(hre.ethers.parseUnits("80", "ether"));
+
+
+
+  });
 
 
   it("Should withdrw token by the staker who deposit", async function () {
@@ -52,9 +97,9 @@ describe("NodeStake Contract V1", function () {
     );
 
     await expect(nodeStake.connect(staker1).setLimit(BigInt(5e18), BigInt(30e18)))
-      .to.be.revertedWith("caller is not the manager");
+      .to.be.revertedWith("caller is not the owner");
 
-    await nodeStake.connect(manager).setLimit(BigInt(5e18), BigInt(80e18));
+    await nodeStake.connect(owner).setLimit(BigInt(5e18), BigInt(80e18));
 
     // deposit tokens 
     console.log("\n----staker1 deposits 30 tokens----");
@@ -221,7 +266,7 @@ describe("NodeStake Contract V1", function () {
 
 
 
-async function makeBindSign(manager,nodeId, caller, nonce) {
+async function makeBindSign(manager, nodeId, caller, nonce) {
   chainId = await hre.network.config.chainId;
   console.log("chainId:\t\t%d", chainId);
   signature = '';
@@ -236,3 +281,26 @@ async function makeBindSign(manager,nodeId, caller, nonce) {
   return signature;
 }
 
+
+/** 
+ *  function ClaimWithSignature(
+        uint256 _tokenAmount,
+        address _beneficiary,
+        string memory _nodeId,
+        string memory _nonce,
+        bytes memory _signature
+    )
+ * 
+ * 
+*/
+
+async function makeClaimSign(manager, tokenAmount, beneficiary, nodeId, nonce) {
+  chainId = await hre.network.config.chainId;
+  console.log("chainId:\t\t%d", chainId);
+  signature = '';
+  dataHash = ethers.solidityPackedKeccak256(['uint256', 'uint256', 'address', 'string', 'string'], [chainId, tokenAmount, beneficiary, nodeId, nonce]);
+
+  messageBytes = ethers.getBytes(dataHash);
+  signature = await manager.signMessage(messageBytes);
+  return signature;
+}

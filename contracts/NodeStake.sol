@@ -35,7 +35,7 @@ interface IReleaseVesing {
     ) external;
 }
 
-contract NodeStakeV1 is ReentrancyGuard{
+contract NodeStakeV1 is ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
@@ -47,10 +47,12 @@ contract NodeStakeV1 is ReentrancyGuard{
     uint256 public tokenInPool; // total statked amount
 
     address public manager; // address of the manager
+    address public owner; // address of the owner
 
     uint256 public minLimit; // minimum limit of stake
     uint256 public maxLimit; // maximum limit of stake
     bool public canDeposit; // switch of deposit
+    bool public canClaim; // switch of claim
 
     struct NodeInfo {
         address beneficiary; // The address of the staker
@@ -74,6 +76,9 @@ contract NodeStakeV1 is ReentrancyGuard{
     // state of each signature verfiy.
     mapping(string => bool) private verifiedState;
 
+    // state of each signature revoke.
+    mapping(string => bool) private revokedState;
+
     // Modifier to check token allowance
     modifier checkTokenAllowance(uint amount) {
         require(
@@ -89,13 +94,23 @@ contract NodeStakeV1 is ReentrancyGuard{
 
     event Withdrawed(address holder, uint256 amount, string nodeId);
 
-    event CanDepositUpdated(address _operator, bool _canDeposit);
+    event WithdrawedForEmergency(address holder, uint256 amount);
+
+    event Claimed(address holder, uint256 amount, string nodeId, string nonce);
 
     /**
      * @dev Throws if called by any account other than the manager.
      */
     modifier onlyManager() {
         require(manager == msg.sender, "caller is not the manager");
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(owner == msg.sender, "caller is not the owner");
         _;
     }
 
@@ -108,17 +123,26 @@ contract NodeStakeV1 is ReentrancyGuard{
     }
 
     /**
-     * @notice Verify address signature
+     * @dev Throws if canDeposit is false.
      */
-    modifier verifyAddressSigner(
+    modifier onlyCanClaim() {
+        require(canClaim, "claim stop");
+        _;
+    }
+
+    /**
+     * @notice Verify bind signature
+     */
+    modifier verifyBindSigner(
         string memory nodeId,
         string memory nonce,
         bytes memory signature
     ) {
+        require(bytes(nodeId).length > 0, "bindNode: nodeId not good");
         require(!verifiedState[nonce], "signature validation failed");
 
         bytes32 messageHash = keccak256(
-            abi.encodePacked(block.chainid, msg.sender,  nodeId, nonce)
+            abi.encodePacked(block.chainid, msg.sender, nodeId, nonce)
         );
 
         // bytes32 messageHash = keccak256(
@@ -138,19 +162,75 @@ contract NodeStakeV1 is ReentrancyGuard{
         _;
     }
 
+    /**
+     * @notice Verify claim signature
+     */
+    modifier verifyClaimSigner(
+        uint256 _tokenAmount,
+        address _beneficiary,
+        string memory _nodeId,
+        string memory _nonce,
+        bytes memory signature
+    ) {
+        require(_tokenAmount > 0, "verifyClaimSigner: _tokenAmount not good");
+
+        require(
+            _beneficiary != address(0),
+            "verifyClaimSigner: beneficiary is the zero address"
+        );
+
+        require(
+            bytes(_nodeId).length > 0,
+            "verifyClaimSigner: nodeId not good"
+        );
+
+        require(bytes(_nonce).length > 0, "verifyClaimSigner: _nonce not good");
+
+        require(
+            !revokedState[_nonce],
+            "verifyClaimSigner: signature validation failed"
+        );
+        require(
+            !verifiedState[_nonce],
+            "verifyClaimSigner: signature validation failed"
+        );
+
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                _tokenAmount,
+                _beneficiary,
+                _nodeId,
+                _nonce
+            )
+        );
+
+        require(
+            manager == messageHash.toEthSignedMessageHash().recover(signature),
+            "verifyClaimSigner: signature validation failed"
+        );
+        verifiedState[_nonce] = true;
+        _;
+    }
+
     constructor(address _token, address _releaseContract, address _manager) {
         require(_token != address(0), "_token is the zero address");
-        require(_releaseContract != address(0), "_releaseContract is the zero address");
+        require(
+            _releaseContract != address(0),
+            "_releaseContract is the zero address"
+        );
         require(_manager != address(0), "_manager is the zero address");
 
         token = IERC20(_token);
         releaseContract = _releaseContract;
         manager = _manager;
+        owner = msg.sender;
         canDeposit = true;
+        canClaim = true;
     }
 
     // update limit.
-    function setLimit(uint256 _minLimit, uint256 _maxLimit) public onlyManager {
+    function setLimit(uint256 _minLimit, uint256 _maxLimit) public onlyOwner {
         if (_maxLimit != 0) {
             require(_minLimit < _maxLimit, "error input _minLimit value");
         }
@@ -159,14 +239,17 @@ contract NodeStakeV1 is ReentrancyGuard{
     }
 
     // update canDeposit state.
-    function setCanDeposit(bool _canDeposit) public onlyManager {
+    function setCanDeposit(bool _canDeposit) public onlyOwner {
         canDeposit = _canDeposit;
+    }
 
-        emit CanDepositUpdated(msg.sender, _canDeposit);
+    // update canClaim state.
+    function setCanClaim(bool _canClaim) public onlyOwner {
+        canClaim = _canClaim;
     }
 
     // Update the manager.
-    function setManager(address _manager) public onlyManager {
+    function setManager(address _manager) public onlyOwner {
         require(_manager != address(0), "_manager is the zero address");
         manager = _manager;
     }
@@ -211,9 +294,7 @@ contract NodeStakeV1 is ReentrancyGuard{
         address _beneficiary,
         string memory _nonce,
         bytes memory _signature
-    ) public onlyCanDeposit verifyAddressSigner(_nodeId, _nonce, _signature) {
-        require(bytes(_nodeId).length > 0, "bindNode: nodeId not good");
-
+    ) public onlyCanDeposit verifyBindSigner(_nodeId, _nonce, _signature) {
         require(
             _beneficiary != address(0),
             "bindNode: _owner is the zero address"
@@ -222,14 +303,43 @@ contract NodeStakeV1 is ReentrancyGuard{
         NodeInfo storage node = nodeInfo[_nodeId];
         require(
             node.beneficiary == address(0) || node.beneficiary == msg.sender,
-            "bindNode: beneficiary is the zero address"
+            "bindNode: caller is not beneficiary"
         );
         node.beneficiary = _beneficiary;
 
         emit Bind(_beneficiary, _nodeId);
     }
 
-    // Withdraw rwa tokens from contract.
+    // Withdraw tokens from contract (onlyOwner).
+    function withdrawRewardForEmergency(
+        uint256 _tokenAmount
+    ) public onlyOwner nonReentrant {
+        require(
+            _tokenAmount > 0,
+            "withdrawRewardForEmergency: _tokenAmount not good"
+        );
+
+        uint256 total = token.balanceOf(address(this));
+        require(
+            token.balanceOf(address(this)) >= _tokenAmount,
+            "withdrawRewardForEmergency: balance of tokens is not enough"
+        );
+
+        uint256 rewardInPool = total.sub(tokenInPool);
+
+        require(
+            rewardInPool >= _tokenAmount,
+            "withdrawRewardForEmergency: rewardInPool is not enough"
+        );
+
+        rewardInPool = rewardInPool.sub(_tokenAmount);
+
+        SafeERC20.safeTransfer(token, msg.sender, _tokenAmount);
+
+        emit WithdrawedForEmergency(msg.sender, _tokenAmount);
+    }
+
+    // Withdraw staked tokens from contract.
     function withdraw(
         string memory _nodeId,
         address _beneficiary,
@@ -288,5 +398,51 @@ contract NodeStakeV1 is ReentrancyGuard{
 
         NodeInfo storage node = nodeInfo[_nodeId];
         return node.amount;
+    }
+
+    // revoke nonce
+    function revoke(string memory _nonce) public onlyManager {
+        require(!revokedState[_nonce], "revoke: _nonce is revoked");
+        require(!verifiedState[_nonce], "revoke: _nonce is verified");
+        revokedState[_nonce] = true;
+    }
+
+    function ClaimWithSignature(
+        uint256 _tokenAmount,
+        address _beneficiary,
+        string memory _nodeId,
+        string memory _nonce,
+        bytes memory _signature
+    )
+        public
+        onlyCanClaim
+        verifyClaimSigner(
+            _tokenAmount,
+            _beneficiary,
+            _nodeId,
+            _nonce,
+            _signature
+        )
+        nonReentrant
+    {
+        uint256 total = token.balanceOf(address(this));
+        require(
+            token.balanceOf(address(this)) >= _tokenAmount,
+            "ClaimWithSignature: balance of tokens is not enough"
+        );
+
+        uint256 rewardInPool = total.sub(tokenInPool);
+
+        require(
+            rewardInPool >= _tokenAmount,
+            "ClaimWithSignature: rewardInPool is not enough"
+        );
+
+
+        rewardInPool = rewardInPool.sub(_tokenAmount);
+
+        SafeERC20.safeTransfer(token, _beneficiary, _tokenAmount);
+
+        emit Claimed(_beneficiary, _tokenAmount, _nodeId, _nonce);
     }
 }
