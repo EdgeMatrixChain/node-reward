@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // The smart contract for airdrop.
 
-
 // File @openzeppelin/contracts/utils/Context.sol@v4.9.3
 
 // Original license: SPDX_License_Identifier: MIT
@@ -28,7 +27,6 @@ abstract contract Context {
         return msg.data;
     }
 }
-
 
 // File @openzeppelin/contracts/access/Ownable.sol@v4.9.3
 
@@ -407,6 +405,17 @@ contract MerkleClaim is Ownable, IMerkleDistributor {
     // This is a packed array of booleans.
     mapping(uint256 => uint256) private claimedBitMap;
 
+    // address of the manager
+    address public manager;
+
+    /**
+     * @dev Throws if called by any account other than the manager.
+     */
+    modifier onlyManager() {
+        require(manager == msg.sender, "caller is not the manager");
+        _;
+    }
+
     constructor(address token_, bytes32 merkleRoot_) {
         require(token_ != address(0), "_token is the zero address");
 
@@ -414,7 +423,13 @@ contract MerkleClaim is Ownable, IMerkleDistributor {
         merkleRoot = merkleRoot_;
     }
 
-    function setMerkleRoot(bytes32 merkleRoot_) public onlyOwner {
+    // Update the manager.
+    function setManager(address _manager) public onlyOwner {
+        require(_manager != address(0), "_manager is the zero address");
+        manager = _manager;
+    }
+
+    function setMerkleRoot(bytes32 merkleRoot_) public onlyManager {
         merkleRoot = merkleRoot_;
     }
 

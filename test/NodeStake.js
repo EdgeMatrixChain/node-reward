@@ -62,13 +62,8 @@ describe("NodeStake Contract V1", function () {
         "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
         "c0001")))
       .to.be.revertedWith("verifyClaimSigner: signature validation failed");
-      
-    staker1TokenBalance = await rewardToken.balanceOf(staker1);
-    console.log("staker1TokenBalance:\t%d", ethers.formatUnits(staker1TokenBalance, 18));
-    expect(staker1TokenBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
 
-
-    await nodeStake.connect(staker1).ClaimWithSignature(
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
       hre.ethers.parseUnits("50", 18),
       staker1.address,
       "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
@@ -78,13 +73,151 @@ describe("NodeStake Contract V1", function () {
         hre.ethers.parseUnits("50", 18),
         staker1.address,
         "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
-        "c0001"));
+        "c0002")))
+      .to.be.revertedWith("verifyClaimSigner: signature validation failed");
+
+    await expect(nodeStake.connect(staker1).revoke("c0001"))
+      .to.be.revertedWith("caller is not the manager");
+
+    await expect(nodeStake.connect(staker1).setManager(staker1))
+      .to.be.revertedWith("caller is not the owner");
+
+    await nodeStake.connect(owner).setManager(staker1)
+    await expect(nodeStake.connect(manager).revoke("c0001"))
+      .to.be.revertedWith("caller is not the manager");
+
+    await nodeStake.connect(owner).setManager(manager)
+
+    await nodeStake.connect(manager).revoke("c0001");
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
+      hre.ethers.parseUnits("50", 18),
+      staker1.address,
+      "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+      "c0001",
+      makeClaimSign(
+        manager,
+        hre.ethers.parseUnits("50", 18),
+        staker1.address,
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0001")))
+      .to.be.revertedWith("verifyClaimSigner: signature validation failed");
+
+
+    await expect(nodeStake.connect(manager).setCanClaim(false))
+      .to.be.revertedWith("caller is not the owner");
+
+    nodeStake.connect(owner).setCanClaim(false);
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
+      hre.ethers.parseUnits("50", 18),
+      staker2.address,
+      "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+      "c0002",
+      makeClaimSign(
+        manager,
+        hre.ethers.parseUnits("50", 18),
+        staker2.address,
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0002")))
+      .to.be.revertedWith("claim stop");
 
 
     staker1TokenBalance = await rewardToken.balanceOf(staker1);
     console.log("staker1TokenBalance:\t%d", ethers.formatUnits(staker1TokenBalance, 18));
-    expect(staker1TokenBalance).to.equal(hre.ethers.parseUnits("80", "ether"));
+    expect(staker1TokenBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
 
+    staker2TokenBalance = await rewardToken.balanceOf(staker2);
+    console.log("staker2TokenBalance:\t%d", ethers.formatUnits(staker2TokenBalance, 18));
+    expect(staker2TokenBalance).to.equal(hre.ethers.parseUnits("81", "ether"));
+
+    nodeStake.connect(owner).setCanClaim(true);
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
+      hre.ethers.parseUnits("50", 18),
+      staker2.address,
+      "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+      "c0002",
+      makeClaimSign(
+        manager,
+        hre.ethers.parseUnits("50", 18),
+        staker2.address,
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0002")))
+      .to.emit(nodeStake, "Claimed")
+      .withArgs(staker2.address,
+        hre.ethers.parseUnits("50", 18),
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0002");
+
+
+    staker1TokenBalance = await rewardToken.balanceOf(staker1);
+    console.log("staker1TokenBalance:\t%d", ethers.formatUnits(staker1TokenBalance, 18));
+    expect(staker1TokenBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
+
+    staker2TokenBalance = await rewardToken.balanceOf(staker2);
+    console.log("staker2TokenBalance:\t%d", ethers.formatUnits(staker2TokenBalance, 18));
+    expect(staker2TokenBalance).to.equal(hre.ethers.parseUnits("131", "ether"));
+
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
+      hre.ethers.parseUnits("50", 18),
+      staker1.address,
+      "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+      "c0002",
+      makeClaimSign(
+        manager,
+        hre.ethers.parseUnits("50", 18),
+        staker1.address,
+        "16Uiu2HAmKS1Sfixq3i6Pt1rqXhSsAvv5EML8C2AL3Y8WK7BamKhT",
+        "c0002")))
+      .to.be.revertedWith("verifyClaimSigner: signature validation failed");
+
+    nodeStakeTokenBalance = await rewardToken.balanceOf(nodeStake);
+    console.log("nodeStakeTokenBalance:\t%d", ethers.formatUnits(nodeStakeTokenBalance, 18));
+    expect(nodeStakeTokenBalance).to.equal(hre.ethers.parseUnits("50", "ether"));
+
+    await expect(nodeStake.connect(staker1).withdrawRewardForEmergency(hre.ethers.parseUnits("50", 18)))
+      .to.be.revertedWith("caller is not the owner");
+
+    await expect(nodeStake.connect(owner).withdrawRewardForEmergency(hre.ethers.parseUnits("51", 18)))
+      .to.be.revertedWith("withdrawRewardForEmergency: balance of tokens is not enough");
+
+
+    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeStake, "Bind")
+      .withArgs(staker1.address,
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+    await rewardToken.connect(staker1).approve(nodeStake, BigInt(5e18));
+    await nodeStake.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(5e18));
+    nodeStakeTokenBalance = await rewardToken.balanceOf(nodeStake);
+    console.log("nodeStakeTokenBalance:\t%d", ethers.formatUnits(nodeStakeTokenBalance, 18));
+    expect(nodeStakeTokenBalance).to.equal(hre.ethers.parseUnits("55", "ether"));
+
+    tokenInPool = await nodeStake.tokenInPool();
+    console.log("tokenInPool:\t\t%d", ethers.formatUnits(tokenInPool, 18));
+    expect(tokenInPool).to.equal(hre.ethers.parseUnits("5", "ether"));
+
+    await expect(nodeStake.connect(owner).withdrawRewardForEmergency(hre.ethers.parseUnits("51", 18)))
+      .to.be.revertedWith("withdrawRewardForEmergency: rewardInPool is not enough");
+
+
+    await expect(nodeStake.connect(owner).withdrawRewardForEmergency(hre.ethers.parseUnits("25", 18)))
+      .to.emit(nodeStake, "WithdrawedForEmergency")
+      .withArgs(owner.address,
+        hre.ethers.parseUnits("25", 18));
+
+    nodeStakeTokenBalance = await rewardToken.balanceOf(nodeStake);
+    console.log("nodeStakeTokenBalance:\t%d", ethers.formatUnits(nodeStakeTokenBalance, 18));
+    expect(nodeStakeTokenBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
+
+    await expect(nodeStake.connect(owner).withdrawRewardForEmergency(hre.ethers.parseUnits("26", 18)))
+      .to.be.revertedWith("withdrawRewardForEmergency: rewardInPool is not enough");
+
+    await expect(nodeStake.connect(owner).withdrawRewardForEmergency(hre.ethers.parseUnits("25", 18)))
+      .to.emit(nodeStake, "WithdrawedForEmergency")
+      .withArgs(owner.address,
+        hre.ethers.parseUnits("25", 18));
+
+    nodeStakeTokenBalance = await rewardToken.balanceOf(nodeStake);
+    console.log("nodeStakeTokenBalance:\t%d", ethers.formatUnits(nodeStakeTokenBalance, 18));
+    expect(nodeStakeTokenBalance).to.equal(hre.ethers.parseUnits("5", "ether"));
 
 
   });
@@ -121,7 +254,18 @@ describe("NodeStake Contract V1", function () {
       .withArgs(staker1.address,
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
+
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(20e18));
+
+    await expect(nodeStake.connect(manager).setCanDeposit(false))
+      .to.be.revertedWith("caller is not the owner");
+
+    await nodeStake.connect(owner).setCanDeposit(false);
+    await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(20e18)))
+      .to.be.revertedWith("deposit stop");
+
+    await nodeStake.connect(owner).setCanDeposit(true);
+
     await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(20e18)))
       .to.emit(nodeStake, "Deposited")
       .withArgs(staker1.address,
@@ -268,13 +412,9 @@ describe("NodeStake Contract V1", function () {
 
 async function makeBindSign(manager, nodeId, caller, nonce) {
   chainId = await hre.network.config.chainId;
-  console.log("chainId:\t\t%d", chainId);
+  // console.log("chainId:\t\t%d", chainId);
   signature = '';
   dataHash = ethers.solidityPackedKeccak256(['uint256', 'address', 'string', 'string'], [chainId, caller, nodeId, nonce]);
-  // dataHash = ethers.solidityPackedKeccak256(['bytes'],[ethers.solidityPackedKeccak256(['uint256', 'address', 'string', 'string'], [chainId, caller, nodeId, nonce])]);
-
-  // encodePacked =  ethers.concat([ ethers.solidityPackedKeccak256(['uint256', 'address', 'string', 'string'], [chainId, caller, nodeId, nonce]) ])
-  // dataHash = ethers.keccak256(encodePacked)
 
   messageBytes = ethers.getBytes(dataHash);
   signature = await manager.signMessage(messageBytes);
@@ -282,21 +422,9 @@ async function makeBindSign(manager, nodeId, caller, nonce) {
 }
 
 
-/** 
- *  function ClaimWithSignature(
-        uint256 _tokenAmount,
-        address _beneficiary,
-        string memory _nodeId,
-        string memory _nonce,
-        bytes memory _signature
-    )
- * 
- * 
-*/
-
 async function makeClaimSign(manager, tokenAmount, beneficiary, nodeId, nonce) {
   chainId = await hre.network.config.chainId;
-  console.log("chainId:\t\t%d", chainId);
+  // console.log("chainId:\t\t%d", chainId);
   signature = '';
   dataHash = ethers.solidityPackedKeccak256(['uint256', 'uint256', 'address', 'string', 'string'], [chainId, tokenAmount, beneficiary, nodeId, nonce]);
 
