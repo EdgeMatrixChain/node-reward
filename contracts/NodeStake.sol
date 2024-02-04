@@ -98,6 +98,11 @@ contract NodeStakeV1 is ReentrancyGuard {
 
     event Claimed(address holder, uint256 amount, string nodeId, string nonce);
 
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
     /**
      * @dev Throws if called by any account other than the manager.
      */
@@ -246,6 +251,28 @@ contract NodeStakeV1 is ReentrancyGuard {
     // update canClaim state.
     function setCanClaim(bool _canClaim) public onlyOwner {
         canClaim = _canClaim;
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(
+            newOwner != address(0),
+            "new owner is the zero address"
+        );
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal {
+        address oldOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
 
     // Update the manager.
@@ -437,7 +464,6 @@ contract NodeStakeV1 is ReentrancyGuard {
             rewardInPool >= _tokenAmount,
             "ClaimWithSignature: rewardInPool is not enough"
         );
-
 
         rewardInPool = rewardInPool.sub(_tokenAmount);
 

@@ -82,6 +82,20 @@ describe("NodeStake Contract V1", function () {
     await expect(nodeStake.connect(staker1).setManager(staker1))
       .to.be.revertedWith("caller is not the owner");
 
+    await expect(nodeStake.connect(staker1).transferOwnership(staker1))
+      .to.be.revertedWith("caller is not the owner");
+
+    await expect(nodeStake.connect(owner).transferOwnership(staker1))
+      .to.emit(nodeStake, "OwnershipTransferred")
+      .withArgs(owner.address, staker1.address);
+
+    await expect(nodeStake.connect(owner).setManager(staker1))
+      .to.be.revertedWith("caller is not the owner");
+
+    await expect(nodeStake.connect(staker1).transferOwnership(owner))
+      .to.emit(nodeStake, "OwnershipTransferred")
+      .withArgs(staker1.address, owner.address);
+
     await nodeStake.connect(owner).setManager(staker1)
     await expect(nodeStake.connect(manager).revoke("c0001"))
       .to.be.revertedWith("caller is not the manager");
