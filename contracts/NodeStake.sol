@@ -258,10 +258,7 @@ contract NodeStakeV1 is ReentrancyGuard {
      * Can only be called by the current owner.
      */
     function transferOwnership(address newOwner) public onlyOwner {
-        require(
-            newOwner != address(0),
-            "new owner is the zero address"
-        );
+        require(newOwner != address(0), "new owner is the zero address");
         _transferOwnership(newOwner);
     }
 
@@ -331,6 +328,10 @@ contract NodeStakeV1 is ReentrancyGuard {
         require(
             node.beneficiary == address(0) || node.beneficiary == msg.sender,
             "bindNode: caller is not beneficiary"
+        );
+        require(
+            node.amount < 1,
+            "bindNode: blance of the node is greater than 0"
         );
         node.beneficiary = _beneficiary;
 
