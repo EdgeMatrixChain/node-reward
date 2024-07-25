@@ -221,8 +221,8 @@ contract MultiSigClaim is ReentrancyGuard {
         require(_signerC != address(0), "_signerC is the zero address");
 
         signerA = _signerA;
-        signerA = _signerB;
-        signerA = _signerC;
+        signerB = _signerB;
+        signerC = _signerC;
     }
 
     // Withdraw tokens from contract (onlyOwner).
