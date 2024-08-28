@@ -53,7 +53,6 @@ contract NodeStakeV2 is ReentrancyGuard {
     uint256 public minLimit; // minimum limit of stake
     uint256 public maxLimit; // maximum limit of stake
     bool public canDeposit; // switch of deposit
-    bool public canClaim; // switch of claim
 
     uint256 scheduleDuration; // duration for schedule
     uint256 scheduleYieldRate; // Base rate by DurationUnits.Days1080
@@ -110,20 +109,15 @@ contract NodeStakeV2 is ReentrancyGuard {
      */
     mapping(string => VestingSchedule[]) public vestingSchedules;
 
-    /**
-     * @notice Reward of schedule durationUnits
-     */
-    mapping(DurationUnits => uint256) public durationUnitRewards;
-
     event Bind(address holder, string nodeId);
 
     event Deposited(address holder, uint256 amount, string nodeId);
 
     event Withdrawed(address holder, uint256 amount, string nodeId);
 
-    event WithdrawedForEmergency(address holder, uint256 amount);
-
     event Claimed(address holder, uint256 amount, string nodeId);
+
+    event TransferReward(address from, uint256 amount, string nodeId);
 
     event OwnershipTransferred(
         address indexed previousOwner,
@@ -159,14 +153,6 @@ contract NodeStakeV2 is ReentrancyGuard {
      */
     modifier onlyCanDeposit() {
         require(canDeposit, "deposit stop");
-        _;
-    }
-
-    /**
-     * @dev Throws if canDeposit is false.
-     */
-    modifier onlyCanClaim() {
-        require(canClaim, "claim stop");
         _;
     }
 
@@ -213,7 +199,6 @@ contract NodeStakeV2 is ReentrancyGuard {
         manager = _manager;
         owner = msg.sender;
         canDeposit = true;
-        canClaim = true;
 
         scheduleYieldRate = _scheduleYieldRate;
         scheduleDuration = _scheduleDuration;
@@ -231,11 +216,6 @@ contract NodeStakeV2 is ReentrancyGuard {
     // update canDeposit state.
     function setCanDeposit(bool _canDeposit) public onlyOwner {
         canDeposit = _canDeposit;
-    }
-
-    // update canClaim state.
-    function setCanClaim(bool _canClaim) public onlyOwner {
-        canClaim = _canClaim;
     }
 
     /**
@@ -346,35 +326,6 @@ contract NodeStakeV2 is ReentrancyGuard {
         emit Bind(_beneficiary, _nodeId);
     }
 
-    // Withdraw tokens from contract (onlyOwner).
-    function withdrawRewardForEmergency(
-        uint256 _tokenAmount
-    ) public onlyOwner nonReentrant {
-        require(
-            _tokenAmount > 0,
-            "withdrawRewardForEmergency: _tokenAmount not good"
-        );
-
-        uint256 total = token.balanceOf(address(this));
-        require(
-            token.balanceOf(address(this)) >= _tokenAmount,
-            "withdrawRewardForEmergency: balance of tokens is not enough"
-        );
-
-        uint256 rewardInPool = total.sub(tokenInPool);
-
-        require(
-            rewardInPool >= _tokenAmount,
-            "withdrawRewardForEmergency: rewardInPool is not enough"
-        );
-
-        rewardInPool = rewardInPool.sub(_tokenAmount);
-
-        SafeERC20.safeTransfer(token, msg.sender, _tokenAmount);
-
-        emit WithdrawedForEmergency(msg.sender, _tokenAmount);
-    }
-
     // Withdraw staked tokens from contract.
     function withdraw(
         string memory _nodeId,
@@ -403,18 +354,23 @@ contract NodeStakeV2 is ReentrancyGuard {
 
         VestingSchedule storage schedule = schedules[_scheduleIndex];
 
-        (uint256 amountBalance, uint256 rewardBalance) = _vestedAmount(
-            schedule
+        (
+            uint256 withdrawableBalance,
+            uint256 rewardBalance,
+            uint256 amountBalance
+        ) = _vestedAmount(schedule);
+        require(
+            withdrawableBalance > 0,
+            "withdraw: withdrawableBalance is zero"
         );
-        require(amountBalance > 0, "withdraw: amount not good");
 
-        tokenInPool = tokenInPool.sub(amountBalance);
+        tokenInPool = tokenInPool.sub(withdrawableBalance);
         node.amount = node.amount.sub(amountBalance);
-        node.debt = node.debt.add(amountBalance);
+        node.debt = node.debt.add(withdrawableBalance);
 
         // update schedule's amount
-        schedule.withdrawed.add(amountBalance);
-        schedule.rewarded.add(rewardBalance);
+        schedule.withdrawed = schedule.withdrawed.add(withdrawableBalance);
+        schedule.rewarded = schedule.rewarded.add(rewardBalance);
         schedule.withdrawedTime = block.timestamp;
 
         // transfer reward to unlocked account
@@ -424,7 +380,11 @@ contract NodeStakeV2 is ReentrancyGuard {
         }
 
         // transfer withdrawed tokens to another contract.
-        SafeERC20.safeIncreaseAllowance(token, releaseContract, amountBalance);
+        SafeERC20.safeIncreaseAllowance(
+            token,
+            releaseContract,
+            withdrawableBalance
+        );
         IReleaseVesing releaser = IReleaseVesing(releaseContract);
 
         // lock tokens into contract for 30 days
@@ -434,10 +394,10 @@ contract NodeStakeV2 is ReentrancyGuard {
             block.timestamp + minStartDays * 1 days + 15 * 60,
             1,
             DurationUnits.Days30,
-            amountBalance
+            withdrawableBalance
         );
 
-        emit Withdrawed(msg.sender, amountBalance, _nodeId);
+        emit Withdrawed(msg.sender, withdrawableBalance, _nodeId);
     }
 
     function balanceOfNode(
@@ -514,7 +474,7 @@ contract NodeStakeV2 is ReentrancyGuard {
     function balanceOfSchedule(
         string memory _nodeId,
         uint256 _scheduleIndex
-    ) external view returns (uint256, uint256) {
+    ) external view returns (uint256, uint256, uint256) {
         require(bytes(_nodeId).length > 0, "scheduleBalance: nodeId not good");
 
         VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
@@ -524,10 +484,12 @@ contract NodeStakeV2 is ReentrancyGuard {
         );
 
         VestingSchedule memory schedule = schedules[_scheduleIndex];
-        (uint256 amountBalance, uint256 rewardBalance) = _vestedAmount(
-            schedule
-        );
-        return (amountBalance, rewardBalance);
+        (
+            uint256 withdrawableBalance,
+            uint256 rewardBalance,
+            uint256 amountBalance
+        ) = _vestedAmount(schedule);
+        return (withdrawableBalance, rewardBalance, amountBalance);
     }
 
     /**
@@ -536,21 +498,21 @@ contract NodeStakeV2 is ReentrancyGuard {
      */
     function _vestedAmount(
         VestingSchedule memory _schedule
-    ) internal view returns (uint256, uint256) {
-        uint256 amountBalance = _schedule.amountTotal;
+    ) internal view returns (uint256, uint256, uint256) {
+        uint256 withdrawableBalance = _schedule.amountTotal;
 
         // calculate balance by block.timestamp (30days:25%, 90days:75%, 180days:100%)
         if (_schedule.withdrawed > 0) {
-            return (0, 0);
+            return (0, 0, _schedule.amountTotal);
         } else {
             if (block.timestamp < _schedule.start) {
-                return (0, 0);
+                return (0, 0, _schedule.amountTotal);
             } else if (block.timestamp < _schedule.start.add(30 days)) {
-                return (0, 0);
+                return (0, 0, _schedule.amountTotal);
             } else if (block.timestamp < _schedule.start.add(90 days)) {
-                amountBalance = amountBalance.mul(25).div(100);
+                withdrawableBalance = withdrawableBalance.mul(25).div(100);
             } else if (block.timestamp < _schedule.start.add(180 days)) {
-                amountBalance = amountBalance.mul(75).div(100);
+                withdrawableBalance = withdrawableBalance.mul(75).div(100);
             }
             uint256 passed = (block.timestamp.sub(_schedule.start)).div(
                 30 days
@@ -566,7 +528,11 @@ contract NodeStakeV2 is ReentrancyGuard {
                 .mul(passed)
                 .div(_schedule.duration)
                 .sub(_schedule.rewarded);
-            return (amountBalance, rewardBalance);
+            return (
+                withdrawableBalance.sub(_schedule.withdrawed),
+                rewardBalance,
+                _schedule.amountTotal
+            );
         }
     }
 
@@ -589,6 +555,8 @@ contract NodeStakeV2 is ReentrancyGuard {
         // transfer reward to unlocked account
         AccountInfo storage stakerAccount = unlockedAccounts[_nodeId];
         stakerAccount.amount = stakerAccount.amount.add(_amount);
+
+        emit TransferReward(msg.sender, _amount, _nodeId);
     }
 
     // Balance of claimable tokens
@@ -605,7 +573,7 @@ contract NodeStakeV2 is ReentrancyGuard {
         VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule memory schedule = schedules[i];
-            (, uint256 rewardBalance) = _vestedAmount(schedule);
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             balance = balance.add(rewardBalance);
         }
         return balance;
@@ -627,7 +595,7 @@ contract NodeStakeV2 is ReentrancyGuard {
 
         require(
             node.beneficiary == msg.sender || node.beneficiary == _beneficiary,
-            "withdraw: beneficiary is invalid"
+            "claim: beneficiary is invalid"
         );
 
         AccountInfo storage stakerAccount = unlockedAccounts[_nodeId];
@@ -640,7 +608,7 @@ contract NodeStakeV2 is ReentrancyGuard {
         VestingSchedule[] storage schedules = vestingSchedules[_nodeId];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule storage schedule = schedules[i];
-            (, uint256 rewardBalance) = _vestedAmount(schedule);
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             // update schedule's amount
             schedule.rewarded = schedule.rewarded.add(rewardBalance);
 
