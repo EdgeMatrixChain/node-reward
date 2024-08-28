@@ -293,10 +293,6 @@ contract NodeStakeV2 is ReentrancyGuard {
             node.beneficiary == address(0) || node.beneficiary == msg.sender,
             "bindNode: caller is not beneficiary"
         );
-        require(
-            node.amount < 1,
-            "bindNode: blance of the node is greater than 0"
-        );
         node.beneficiary = _beneficiary;
 
         emit Bind(_beneficiary, _nodeId);
@@ -316,10 +312,6 @@ contract NodeStakeV2 is ReentrancyGuard {
         require(
             node.beneficiary != address(0) || node.beneficiary == msg.sender,
             "bindNode: caller is not beneficiary"
-        );
-        require(
-            node.amount < 1,
-            "bindNode: blance of the node is greater than 0"
         );
         node.beneficiary = _beneficiary;
 

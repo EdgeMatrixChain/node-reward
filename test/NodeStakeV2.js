@@ -9,6 +9,8 @@ function Enum(...options) {
   return Object.fromEntries(options.map((key, i) => [key, i]));
 }
 
+const durationUnit = Enum('Days30', 'Days90', 'Days180', 'Days360');
+const durationUnitName = ['Days30', 'Days90', 'Days180', 'Days360'];
 
 const ONE_DAY_IN_SECS = 24 * 60 * 60;
 const ONE_ETHER = BigInt(1e18);
@@ -73,6 +75,12 @@ describe("NodeStakeV2 Contract Test", function () {
       .withArgs(staker1.address,
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
+    console.log("\n----staker2 rebind 16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG----");
+    await expect(nodeStake.connect(staker1).rebind("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker2.address))
+      .to.emit(nodeStake, "Bind")
+      .withArgs(staker2.address,
+        "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
+
     await expect(nodeStake.connect(manager).setCanDeposit(false))
       .to.be.revertedWith("caller is not the owner");
 
@@ -107,7 +115,7 @@ describe("NodeStakeV2 Contract Test", function () {
     expect(node1Balance).to.equal(hre.ethers.parseUnits("1000", "ether"));
 
     schedules = await nodeStake.getSchedules("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
-    expect(1, schedules.length);
+    expect(schedules.length).to.equal(1);
 
     for (let i = 0; i < schedules.length; i++) {
       schedule = schedules[i]
@@ -309,7 +317,7 @@ describe("NodeStakeV2 Contract Test", function () {
     expect(node1Balance).to.equal(hre.ethers.parseUnits("1000", "ether"));
 
     schedules = await nodeStake.getSchedules("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
-    expect(1, schedules.length);
+    expect(schedules.length).to.equal(1);
 
     for (let i = 0; i < schedules.length; i++) {
       schedule = schedules[i]
@@ -407,12 +415,21 @@ describe("NodeStakeV2 Contract Test", function () {
         hre.ethers.parseUnits("250", "ether"),
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
+    vesingScheduleList = await scheduleRelease.getVestingSchedule(staker1.address);
+    expect(vesingScheduleList.length).to.equal(1);
+
+    for (let i = 0; i < vesingScheduleList.length; i++) {
+      vesingSchedule = vesingScheduleList[i]
+      console.log("vesingSchedule[%d]: beneficiary=%s, start=%d, duration=%d, durationUnits=%d, amountTotal=%d Ether",
+        i, vesingSchedule.beneficiary, vesingSchedule.start, vesingSchedule.duration, vesingSchedule.durationUnits, ethers.formatEther(vesingSchedule.amountTotal));
+    }
+
     node1Balance = await nodeStake.balanceOfNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
     console.log("node1Balance:\t\t%d", ethers.formatUnits(node1Balance, 18));
     expect(node1Balance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
     schedules = await nodeStake.getSchedules("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
-    expect(1, schedules.length);
+    expect(schedules.length).to.equal(1);
 
     for (let i = 0; i < schedules.length; i++) {
       schedule = schedules[i]
@@ -447,7 +464,7 @@ describe("NodeStakeV2 Contract Test", function () {
     expect(claimableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
     schedules = await nodeStake.getSchedules("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
-    expect(1, schedules.length);
+    expect(schedules.length).to.equal(1);
 
     for (let i = 0; i < schedules.length; i++) {
       schedule = schedules[i]
