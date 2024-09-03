@@ -25,7 +25,7 @@ describe("NodeStakeNativeV1 Contract Test", function () {
 
     // Contracts are deployed using the first signer/account by default
     const [owner, staker1, staker2, manager] = await ethers.getSigners();
-
+    
     // deploy NodeStake contract
     const scheduleRelease = await hre.ethers.deployContract("ReleaseVestingNativeV1", [0]);
     await scheduleRelease.waitForDeployment();
