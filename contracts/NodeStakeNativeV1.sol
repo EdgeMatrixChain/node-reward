@@ -75,6 +75,8 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     mapping(string => bool) private verifiedState;
 
     struct VestingSchedule {
+        // deposit type
+        uint256 depositType;
         // start time of the vesting period
         uint256 start;
         // duration of the vesting period(30days)
@@ -102,7 +104,12 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
     event Withdrawed(address holder, uint256 amount, string nodeId);
 
-    event Claimed(address holder, uint256 amount, string nodeId);
+    event Claimed(
+        address holder,
+        uint256 rewardAmount,
+        uint256 interestAmount,
+        string nodeId
+    );
 
     event TransferReward(address from, uint256 amount, string nodeId);
 
@@ -230,6 +237,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     // Deposit tokens to contract
     function deposit(
         string memory _nodeId,
+        uint256 _depositType,
         uint256 _amount
     ) public payable onlyCanDeposit nonReentrant {
         require(
@@ -257,7 +265,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         node.accumulated = node.accumulated.add(_amount);
         tokenInPool = tokenInPool.add(_amount);
 
-        _createVestingSchedule(_nodeId, block.timestamp, _amount);
+        _createVestingSchedule(_nodeId, _depositType, block.timestamp, _amount);
 
         emit Deposited(msg.sender, _amount, _nodeId);
     }
@@ -296,7 +304,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
         NodeInfo storage node = nodeInfo[_nodeId];
         require(
-            node.beneficiary != address(0) || node.beneficiary == msg.sender,
+            node.beneficiary != address(0) && node.beneficiary == msg.sender,
             "bindNode: caller is not beneficiary"
         );
         node.beneficiary = _beneficiary;
@@ -351,11 +359,10 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         schedule.rewarded = schedule.rewarded.add(rewardBalance);
         schedule.withdrawedTime = block.timestamp;
 
-        // transfer reward to unlocked account
-        AccountInfo storage stakerAccount = unlockedAccounts[_nodeId];
-        if (rewardBalance > 0) {
-            stakerAccount.amount = stakerAccount.amount.add(rewardBalance);
-        }
+        // transfer the interest tokens to the _beneficiary
+        payable(_beneficiary).transfer(rewardBalance);
+
+        emit Claimed(_beneficiary, 0, rewardBalance, _nodeId);
 
         // transfer withdrawed tokens to another contract.
         IReleaseVesing releaser = IReleaseVesing(releaseContract);
@@ -391,6 +398,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
      */
     function _createVestingSchedule(
         string memory _nodeId,
+        uint256 _depositType,
         uint256 _start,
         uint256 _amountTotal
     ) internal {
@@ -402,6 +410,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
         vestingSchedules[_nodeId].push(
             VestingSchedule({
+                depositType: _depositType,
                 start: _start,
                 duration: scheduleDuration,
                 amountTotal: _amountTotal,
@@ -555,6 +564,37 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         return balance;
     }
 
+    // Balance of claimable interest tokens
+    function claimableInterestBalance(
+        string memory _nodeId
+    ) external view returns (uint256) {
+        require(bytes(_nodeId).length > 0, "claimableBalance: nodeId not good");
+
+        uint256 balance = 0;
+
+        // sum schedule's rewardBalance
+        VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
+        for (uint256 i = 0; i < schedules.length; i++) {
+            VestingSchedule memory schedule = schedules[i];
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
+            balance = balance.add(rewardBalance);
+        }
+        return balance;
+    }
+
+    // Balance of claimable tokens
+    function claimableRewardBalance(
+        string memory _nodeId
+    ) external view returns (uint256) {
+        require(bytes(_nodeId).length > 0, "claimableBalance: nodeId not good");
+
+        // transfer reward to unlocked account
+        AccountInfo memory stakerAccount = unlockedAccounts[_nodeId];
+        uint256 balance = stakerAccount.amount;
+
+        return balance;
+    }
+
     // Claim tokens from contract.
     function claim(
         string memory _nodeId,
@@ -575,8 +615,8 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         );
 
         AccountInfo storage stakerAccount = unlockedAccounts[_nodeId];
-        uint256 totalAmount = stakerAccount.amount;
-
+        uint256 accountAmount = stakerAccount.amount;
+        uint256 totalAmount = accountAmount;
         // update unlocked account
         stakerAccount.amount = 0;
 
@@ -596,6 +636,11 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         // transfer the tokens to the _beneficiary
         payable(_beneficiary).transfer(totalAmount);
 
-        emit Claimed(_beneficiary, totalAmount, _nodeId);
+        emit Claimed(
+            _beneficiary,
+            accountAmount,
+            totalAmount.sub(accountAmount),
+            _nodeId
+        );
     }
 }
