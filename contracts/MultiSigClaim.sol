@@ -19,10 +19,6 @@ interface INodeStake {
         string memory _nodeId
     ) external view returns (uint256);
 
-    // function nodeInfo(
-    //     string memory _nodeId
-    // ) external view returns (  address,  uint256,  uint256,  uint256);
-
     function nodeInfo(
         string memory _nodeId
     ) external view returns (NodeInfo memory);
@@ -38,9 +34,6 @@ contract MultiSigClaim is ReentrancyGuard {
 
     // state of each signature verfiy.
     mapping(string => bool) private verifiedState;
-
-    // state of each signature revoke.
-    mapping(string => bool) private revokedState;
 
     address public signerA; // address of the signerA
     address public signerB; // address of the signerB
@@ -122,31 +115,16 @@ contract MultiSigClaim is ReentrancyGuard {
         require(bytes(_nonce).length > 0, "verifyClaimSigner: _nonce not good");
 
         require(
-            !revokedState[_nonce],
-            "verifyClaimSigner: signature validation failed"
-        );
-        require(
             !verifiedState[_nonce],
             "verifyClaimSigner: signature validation failed"
         );
 
-        // console.log(block.chainid);
-        // console.log(_tokenAmount);
-        // console.log(_beneficiary);
-
-        // (address node_beneficiary, , , ) =  nodeStakeContract.nodeInfo(_nodeId);
-        // console.log(node_beneficiary);
         NodeInfo memory node = nodeStakeContract.nodeInfo(_nodeId);
         require(
             // node_beneficiary == _beneficiary,
             node.beneficiary == _beneficiary,
             "verifyClaimSigner: _beneficiary not good"
         );
-
-        // console.log(_nonce);
-        // console.log(signerA);
-        // console.log(signerB);
-        // console.log(signerC);
 
         bytes32 messageHash = keccak256(
             abi.encodePacked(
