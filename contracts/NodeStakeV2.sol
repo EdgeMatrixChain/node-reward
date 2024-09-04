@@ -310,7 +310,7 @@ contract NodeStakeV2 is ReentrancyGuard {
 
         NodeInfo storage node = nodeInfo[_nodeId];
         require(
-            node.beneficiary != address(0) || node.beneficiary == msg.sender,
+            node.beneficiary != address(0) && node.beneficiary == msg.sender,
             "bindNode: caller is not beneficiary"
         );
         node.beneficiary = _beneficiary;

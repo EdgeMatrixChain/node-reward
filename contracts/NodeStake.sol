@@ -14,6 +14,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "hardhat/console.sol";
 enum DurationUnits {
     Days30,
     Days90,
@@ -200,6 +201,13 @@ contract NodeStakeV1 is ReentrancyGuard {
             "verifyClaimSigner: signature validation failed"
         );
 
+        console.log(block.chainid);
+        // 42161
+        console.log(_tokenAmount);
+        console.log(_beneficiary);
+        console.log(_nodeId);
+        console.log(_nonce);
+
         bytes32 messageHash = keccak256(
             abi.encodePacked(
                 block.chainid,
@@ -209,6 +217,7 @@ contract NodeStakeV1 is ReentrancyGuard {
                 _nonce
             )
         );
+        console.log(messageHash.toEthSignedMessageHash().recover(signature));
 
         require(
             manager == messageHash.toEthSignedMessageHash().recover(signature),

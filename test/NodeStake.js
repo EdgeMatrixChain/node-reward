@@ -43,6 +43,23 @@ describe("NodeStake Contract V1", function () {
     return { nodeStake, scheduleRelease, rewardToken, owner, staker1, staker2, manager };
   }
 
+  it("Should claim reward with signature", async function () {
+    const { nodeStake, scheduleRelease, rewardToken, owner, staker1, staker2, manager } = await loadFixture(
+      deployContractFixture
+    );
+    console.log(owner.address);
+    await rewardToken.transfer(nodeStake, hre.ethers.parseUnits("300", 18));
+
+    await expect(nodeStake.connect(staker1).ClaimWithSignature(
+      BigInt("107718786558253467500"),
+      '0x2e7858c7ae0c7b2a10cced64f22b85c2d1b65c94',
+      "16Uiu2HAkusoXqi4dj6hyXqcSYEBLM1MS7q4AiqyPPAhRdkpvcA2V",
+      "65ce2f41fccb4dc59e7a514e",
+      "0xfdc0341efb9c0eb04dcedc1c0a0edcf0dc0534848e5eecab5614daffe658151d74fca562b9b153e83cbfeb4eee6161ac8ee3b07d3c22a6f77ed96333715b7ebf1c"))
+      .to.be.revertedWith("verifyClaimSigner: signature validation failed");
+
+  });
+
   it("Should claim reward", async function () {
     const { nodeStake, scheduleRelease, rewardToken, owner, staker1, staker2, manager } = await loadFixture(
       deployContractFixture
