@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // EMC Foundation
-// EMC (EdgeMatrix Computing) is a decentralized computing network in the AI era.
-
+// EMC (Edge Matrix Chain) is a leading AI DePIN in AI+Web3, bridging the computing power network and AI (d)apps.
 pragma solidity ^0.8.0;
 
 // import "@openzeppelin/contracts@4.9.3/utils/math/SafeMath.sol";
@@ -126,6 +125,9 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         uint256 yieldRate
     );
 
+    // Event to log the received native token
+    event Received(address sender, uint amount);
+
     /**
      * @dev Throws if called by any account other than the manager.
      */
@@ -193,6 +195,16 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
         scheduleYieldRate = _scheduleYieldRate;
         scheduleDuration = _scheduleDuration;
+    }
+
+    // Function to receive token
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
+    // Function to get the contract's balance
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
     }
 
     // update limit.
@@ -387,6 +399,31 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
         NodeInfo storage node = nodeInfo[_nodeId];
         return node.amount;
+    }
+
+    function balanceOfNodeByDepositType(
+        string memory _nodeId,
+        uint256 _depositType
+    ) external view returns (uint256) {
+        require(
+            bytes(_nodeId).length > 0,
+            "balanceOfNodeByDepositType: nodeId not good"
+        );
+
+        uint256 balance = 0;
+
+        // sum schedule's balance
+        VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
+        for (uint256 i = 0; i < schedules.length; i++) {
+            VestingSchedule memory schedule = schedules[i];
+            if (
+                schedule.depositType == _depositType && schedule.withdrawed == 0
+            ) {
+                balance = balance.add(schedule.amountTotal);
+            }
+        }
+
+        return balance;
     }
 
     /**

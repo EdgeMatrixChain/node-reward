@@ -25,7 +25,7 @@ describe("NodeStakeNativeV1 Contract Test", function () {
 
     // Contracts are deployed using the first signer/account by default
     const [owner, staker1, staker2, manager] = await ethers.getSigners();
-    
+
     // deploy NodeStake contract
     const scheduleRelease = await hre.ethers.deployContract("ReleaseVestingNativeV1", [0]);
     await scheduleRelease.waitForDeployment();
@@ -297,6 +297,23 @@ describe("NodeStakeNativeV1 Contract Test", function () {
     await nodeStake.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(0), BigInt(1000e18), { value: hre.ethers.parseEther("1000") });
     await nodeStake.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(1), BigInt(100e18), { value: hre.ethers.parseEther("100") });
 
+    contractBalance = await hre.ethers.provider.getBalance(nodeStake.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
+
+    contractBalance = await nodeStake.getBalance();
+    console.log("contractBalance:\t%d", ethers.formatUnits(contractBalance, 18));
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
+
+    nodeBalanceType0 = await nodeStake.balanceOfNodeByDepositType("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0);
+    expect(nodeBalanceType0).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
+    nodeBalanceType1 = await nodeStake.balanceOfNodeByDepositType("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 1);
+    expect(nodeBalanceType1).to.equal(hre.ethers.parseUnits("100", "ether"));
+
+    console.log("contractBalance:\t%d", ethers.formatUnits(contractBalance, 18));
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
+
+
     await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1.address, "a01232", makeBindSign(manager, '16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG', staker1.address.toLowerCase(), "a01232")))
       .to.emit(nodeStake, "Bind")
       .withArgs(staker1.address,
@@ -308,6 +325,13 @@ describe("NodeStakeNativeV1 Contract Test", function () {
       .withArgs(staker1.address,
         BigInt(1000e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
+
+    contractBalance = await hre.ethers.provider.getBalance(nodeStake.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("2100", "ether"));
+
+    contractBalance = await nodeStake.getBalance();
+    console.log("contractBalance:\t%d", ethers.formatUnits(contractBalance, 18));
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("2100", "ether"));
 
     await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(1), BigInt(1e18), { value: hre.ethers.parseEther("1") }))
       .to.be.revertedWith("deposit: less than minimum limit");
@@ -452,6 +476,13 @@ describe("NodeStakeNativeV1 Contract Test", function () {
         i, vesingSchedule.beneficiary, vesingSchedule.start, vesingSchedule.duration, vesingSchedule.durationUnits, ethers.formatEther(vesingSchedule.amountTotal));
     }
 
+    nodeBalanceType0 = await nodeStake.balanceOfNodeByDepositType("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0);
+    expect(nodeBalanceType0).to.equal(hre.ethers.parseUnits("0", "ether"));
+
+    nodeBalanceType1 = await nodeStake.balanceOfNodeByDepositType("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 1);
+    expect(nodeBalanceType1).to.equal(hre.ethers.parseUnits("100", "ether"));
+
+
     node1Balance = await nodeStake.balanceOfNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
     console.log("node1Balance:\t\t%d", ethers.formatUnits(node1Balance, 18));
     expect(node1Balance).to.equal(hre.ethers.parseUnits("100", "ether"));
@@ -533,6 +564,26 @@ describe("NodeStakeNativeV1 Contract Test", function () {
 
     // await expect(nodeStake.connect(staker1).claim("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address))
     //   .to.be.revertedWith("claim: claimable balance is zero");
+
+  });
+
+  it("Should transfer ETH to contract", async function () {
+    const { nodeStake, scheduleRelease, owner, staker1, staker2, manager } = await loadFixture(
+      deployContractFixture
+    );
+
+    console.log(await hre.ethers.provider.getBalance(nodeStake.target));
+
+    const tx = await owner.sendTransaction({ to: nodeStake.target, value: hre.ethers.parseUnits("100", "ether") });
+
+    await tx.wait();
+
+    contractBalance = await hre.ethers.provider.getBalance(nodeStake.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
+
+    contractBalance = await nodeStake.getBalance();
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
+    console.log("contractBalance:\t%d", ethers.formatUnits(contractBalance, 18));
 
   });
 
