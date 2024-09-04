@@ -223,11 +223,6 @@ describe("MultiSigManager Contract V1", function () {
       deployContractFixture
     );
 
-    console.log("contractOwner:\t\t%s", contractOwner.address);
-    // await expect(nodeStake.connect(owner).transferOwnership(staker1))
-    //   .to.emit(nodeStake, "OwnershipTransferred")
-    //   .withArgs(owner.address, staker1.address);
-
     await expect(nodeStake.connect(contractOwner).transferOwnership(multiSigManager))
       .to.emit(nodeStake, "OwnershipTransferred")
       .withArgs(contractOwner.address, multiSigManager.target);
@@ -243,8 +238,766 @@ describe("MultiSigManager Contract V1", function () {
     transactionCount = await multiSigManager.getTransactionCount();
     expect(transactionCount).to.equal(0);
 
-    tx = createTransaction(nodeStake.target, manager2);
-    console.log("nodeStake contract:\t%s", nodeStake.target);
+    const abi = [
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_releaseContract",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "_manager",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_scheduleYieldRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_scheduleDuration",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "address",
+            "name": "holder",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "Bind",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "address",
+            "name": "holder",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "rewardAmount",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "interestAmount",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "Claimed",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "address",
+            "name": "holder",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "Deposited",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "previousOwner",
+            "type": "address"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "newOwner",
+            "type": "address"
+          }
+        ],
+        "name": "OwnershipTransferred",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "TransferReward",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": true,
+            "internalType": "string",
+            "name": "nodeId",
+            "type": "string"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "start",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "duration",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "amountTotal",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "yieldRate",
+            "type": "uint256"
+          }
+        ],
+        "name": "VestingScheduleCreated",
+        "type": "event"
+      },
+      {
+        "anonymous": false,
+        "inputs": [
+          {
+            "indexed": false,
+            "internalType": "address",
+            "name": "holder",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "indexed": false,
+            "internalType": "string",
+            "name": "nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "Withdrawed",
+        "type": "event"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "balanceOfNode",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_scheduleIndex",
+            "type": "uint256"
+          }
+        ],
+        "name": "balanceOfSchedule",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "_beneficiary",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "_nonce",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes",
+            "name": "_signature",
+            "type": "bytes"
+          }
+        ],
+        "name": "bindNode",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "canDeposit",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "_beneficiary",
+            "type": "address"
+          }
+        ],
+        "name": "claim",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "claimableBalance",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "claimableInterestBalance",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "claimableRewardBalance",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_depositType",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_amount",
+            "type": "uint256"
+          }
+        ],
+        "name": "deposit",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          }
+        ],
+        "name": "getSchedules",
+        "outputs": [
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "depositType",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "start",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "duration",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amountTotal",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "withdrawed",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "yieldRate",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "rewarded",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "withdrawedTime",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct NodeStakeNativeV1.VestingSchedule[]",
+            "name": "",
+            "type": "tuple[]"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "manager",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "maxLimit",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "minLimit",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "",
+            "type": "string"
+          }
+        ],
+        "name": "nodeInfo",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "beneficiary",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "accumulated",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "debt",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "_beneficiary",
+            "type": "address"
+          }
+        ],
+        "name": "rebind",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "releaseContract",
+        "outputs": [
+          {
+            "internalType": "address",
+            "name": "",
+            "type": "address"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "bool",
+            "name": "_canDeposit",
+            "type": "bool"
+          }
+        ],
+        "name": "setCanDeposit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "uint256",
+            "name": "_minLimit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_maxLimit",
+            "type": "uint256"
+          }
+        ],
+        "name": "setLimit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_manager",
+            "type": "address"
+          }
+        ],
+        "name": "setManager",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "tokenInPool",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "newOwner",
+            "type": "address"
+          }
+        ],
+        "name": "transferOwnership",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_amount",
+            "type": "uint256"
+          }
+        ],
+        "name": "transferRewardTo",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "",
+            "type": "uint256"
+          }
+        ],
+        "name": "vestingSchedules",
+        "outputs": [
+          {
+            "internalType": "uint256",
+            "name": "depositType",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "start",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "duration",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amountTotal",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "withdrawed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "yieldRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rewarded",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "withdrawedTime",
+            "type": "uint256"
+          }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {
+            "internalType": "string",
+            "name": "_nodeId",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_scheduleIndex",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "_beneficiary",
+            "type": "address"
+          }
+        ],
+        "name": "withdraw",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      }
+    ];
+
+    // call setManager
+    tx = createTx(
+      nodeStake.target,
+      abi,
+      "setManager",
+      [manager2.address]);
+
+    console.log("contract:\t\t%s", nodeStake.target);
+    console.log("functoinName:\t\t%s", "setManager");
+    console.log("args:\t\t\t[%s]", manager2.address);
     console.log(tx);
 
     // emit SubmitTransaction(msg.sender, txIndex, _to, _value, _data)
@@ -275,10 +1028,61 @@ describe("MultiSigManager Contract V1", function () {
     newManager = await nodeStake.manager();
     expect(newManager).to.equal(manager2.address);
 
+    // call setLimit
+    tx = createTx(
+      nodeStake.target,
+      abi,
+      "setLimit",
+      [1000, 5000]);
+
+    console.log("contract:\t\t%s", nodeStake.target);
+    console.log("functoinName:\t\t%s", "setManager");
+    console.log("args:\t\t\t[%s]", manager2.address);
+    console.log(tx);
+
+    await expect(multiSigManager.connect(signerA).submitTransaction(tx.to, BigInt(0e18), tx.data))
+      .to.emit(multiSigManager, "SubmitTransaction")
+      .withArgs(signerA.address, 1, nodeStake.target, 0, tx.data);
+
+    // emit ConfirmTransaction(msg.sender, _txIndex);
+    await expect(multiSigManager.connect(signerA).confirmTransaction(1))
+      .to.emit(multiSigManager, "ConfirmTransaction")
+      .withArgs(signerA.address, 1);
+
+    await expect(multiSigManager.connect(signerB).confirmTransaction(1))
+      .to.emit(multiSigManager, "ConfirmTransaction")
+      .withArgs(signerB.address, 1);
+
+    [to, value, data, executed, numConfirmations] = await multiSigManager.getTransaction(1);
+    expect(to).to.equal(nodeStake.target);
+    expect(value).to.equal(0);
+    expect(executed).to.equal(false);
+    expect(numConfirmations).to.equal(2);
+
+    // emit ExecuteTransaction(msg.sender, _txIndex);
+    await expect(multiSigManager.connect(signerB).executeTransaction(1))
+      .to.emit(multiSigManager, "ExecuteTransaction")
+      .withArgs(signerB.address, 1);
+
+    minLimit = await nodeStake.minLimit();
+    expect(minLimit).to.equal(1000);
+    maxLimit = await nodeStake.maxLimit();
+    expect(maxLimit).to.equal(5000);
 
   });
 
-  function createTransaction(contractAddress, newOwner) {
+  function createTx(contractAddress, abi, functionName, args) {
+    const contract = new ethers.Contract(contractAddress, abi, hre.ethers.provider);
+    const calldata = contract.interface.encodeFunctionData(functionName, args);
+    console.log(`Calldata\t\t${calldata}`);
+    tx = {
+      to: contractAddress,
+      data: calldata,
+    };
+    return tx;
+  }
+
+  function createSetManagerTx(contractAddress, newOwner) {
     const abi = [
       "function setManager(address _manager) public"
     ];
@@ -287,7 +1091,7 @@ describe("MultiSigManager Contract V1", function () {
     const args = [newOwner.address];
 
     const calldata = contract.interface.encodeFunctionData(functionName, args);
-    console.log(`Calldata: ${calldata}`);
+    console.log(`Calldata\t\t${calldata}`);
     tx = {
       to: contractAddress,
       data: calldata,
