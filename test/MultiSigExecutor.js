@@ -24,17 +24,16 @@ describe("MultiSigExecutor Contract", function () {
     const multiSigExecutor = await hre.ethers.deployContract("MultiSigExecutor", [signerA, signerB, signerC]);
     await multiSigExecutor.waitForDeployment();
 
-    // deploy NodeStake contract
+    // deploy ReleaseVestingNativeV1 contract
     const scheduleRelease = await hre.ethers.deployContract("ReleaseVestingNativeV1", [0]);
     await scheduleRelease.waitForDeployment();
 
-    // deploy NodeStake contract
+    // deploy NodeStakeNativeV1 contract
     const days1080RewardRate = hre.ethers.parseUnits("0.36", "ether");
     const nodeStake = await hre.ethers.deployContract("NodeStakeNativeV1", [scheduleRelease, manager1, days1080RewardRate, 36]);
     await nodeStake.waitForDeployment();
 
     return { multiSigExecutor, multiSigManager, nodeStake, contractOwner, signerA, signerB, signerC, staker1, manager1, manager2 };
-
   }
 
 
@@ -42,18 +41,6 @@ describe("MultiSigExecutor Contract", function () {
     const { multiSigExecutor, multiSigManager, nodeStake, contractOwner, signerA, signerB, signerC, staker1, manager1, manager2 } = await loadFixture(
       deployContractFixture
     );
-
-    // await expect(multiSigExecutor.connect(contractOwner).transferOwnership(multiSigManager))
-    //   .to.emit(multiSigExecutor, "OwnershipTransferred")
-    //   .withArgs(contractOwner.address, multiSigManager.target);
-
-    // owners = await multiSigManager.getOwners();
-    // expect(owners.length).to.equal(2);
-
-    // for (let i = 0; i < owners.length; i++) {
-    //   console.log("owners[%d]:\t\t%s",
-    //     i, owners[i]);
-    // }
 
     const transferTx = await contractOwner.sendTransaction({ to: multiSigExecutor.target, value: hre.ethers.parseUnits("100", "ether") });
     await transferTx.wait();
@@ -913,8 +900,6 @@ describe("MultiSigExecutor Contract", function () {
 
   });
 
-
-
   function createTx(contractAddress, abi, functionName, args) {
     const contract = new ethers.Contract(contractAddress, abi, hre.ethers.provider);
     const calldata = contract.interface.encodeFunctionData(functionName, args);
@@ -939,11 +924,6 @@ describe("MultiSigExecutor Contract", function () {
 
   async function makeExecuteSign(signer, to, value, data, nonce) {
     chainId = await hre.network.config.chainId;
-    // console.log("\nchainId:\t\t%d", chainId);
-    // console.log("tokenAmount:\t\t%d", tokenAmount);
-    // console.log("nodeId:\t\t\t%s", nodeId);
-    // console.log("beneficiary:\t\t%s", beneficiary);
-    // console.log("nonce:\t\t\t%s", nonce);
     signature = '';
 
     dataHash = ethers.solidityPackedKeccak256(['uint256', 'address', 'uint256', 'bytes', 'string'], [chainId, to, value, data, nonce]);
@@ -953,10 +933,6 @@ describe("MultiSigExecutor Contract", function () {
     console.log("\nsginer:\t\t\t%s", signer.address)
     console.log("dataHash:\t\t%s", dataHash)
     console.log("signature:\t\t%s", signature)
-
-
-    // signature2 = await signer.signMessage("hello");
-    // console.log("signature2:\t\t%s", signature2)
 
     return signature;
   }
