@@ -25,7 +25,7 @@ describe("MultiSigClaim Contract V1", function () {
     // Contracts are deployed using the first signer/account by default
     const [owner, signerA, signerB, signerC, staker1, staker2, staker3] = await ethers.getSigners();
 
-  console.log("staker3:\t\t%s", staker3.address);
+    console.log("staker3:\t\t%s", staker3.address);
 
 
 
