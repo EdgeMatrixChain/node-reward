@@ -36,6 +36,65 @@ describe("MultiSigExecutor Contract", function () {
     return { multiSigExecutor, multiSigManager, nodeStake, contractOwner, signerA, signerB, signerC, staker1, manager1, manager2 };
   }
 
+  it("Should setSigner by multiSigManager", async function () {
+    const { multiSigExecutor, multiSigManager, nodeStake, contractOwner, signerA, signerB, signerC, staker1, manager1, manager2 } = await loadFixture(
+      deployContractFixture
+    );
+
+    await expect(multiSigExecutor.connect(contractOwner).transferOwnership(multiSigManager))
+      .to.emit(multiSigExecutor, "OwnershipTransferred")
+      .withArgs(contractOwner.address, multiSigManager.target);
+
+    await expect(multiSigExecutor.connect(contractOwner).setSigner(signerA, signerB, manager1))
+      .to.be.revertedWith("caller is not the owner");
+
+
+    // call setSigner
+    txIndex = await multiSigManager.getTransactionCount();
+    abi = ["function setSigner(address _signerA,address _signerB,address _signerC) public"];
+    tx = createTx(
+      multiSigExecutor.target,
+      abi,
+      "setSigner",
+      [signerA.address, signerC.address, signerB.address]);
+
+    console.log(`txIndex:\t\t${txIndex}`);
+    console.log("contract:\t\t%s", multiSigExecutor.target);
+    console.log("functoinName:\t\t%s", "setSigner");
+    console.log(tx);
+
+    // emit SubmitTransaction(msg.sender, txIndex, _to, _value, _data);
+    await expect(multiSigManager.connect(signerA).submitTransaction(tx.to, BigInt(0), tx.data))
+      .to.emit(multiSigManager, "SubmitTransaction")
+      .withArgs(signerA.address, txIndex, multiSigExecutor.target, 0, tx.data);
+
+    // emit ConfirmTransaction(msg.sender, _txIndex);
+    await expect(multiSigManager.connect(signerA).confirmTransaction(txIndex))
+      .to.emit(multiSigManager, "ConfirmTransaction")
+      .withArgs(signerA.address, txIndex);
+
+    await expect(multiSigManager.connect(signerB).confirmTransaction(txIndex))
+      .to.emit(multiSigManager, "ConfirmTransaction")
+      .withArgs(signerB.address, txIndex);
+
+    [to, value, data, executed, numConfirmations] = await multiSigManager.getTransaction(txIndex);
+    expect(to).to.equal(multiSigExecutor.target);
+    expect(value).to.equal(0);
+    expect(executed).to.equal(false);
+    expect(numConfirmations).to.equal(2);
+
+    // emit ExecuteTransaction(msg.sender, _txIndex);
+    await expect(multiSigManager.connect(signerA).executeTransaction(txIndex))
+      .to.emit(multiSigManager, "ExecuteTransaction")
+      .withArgs(signerA.address, txIndex);
+
+    newSignerC = await multiSigExecutor.signerC();
+    expect(newSignerC).to.equal(signerB.address);
+
+    newSignerB = await multiSigExecutor.signerB();
+    expect(newSignerB).to.equal(signerC.address);
+
+  });
 
   it("Should call other contract", async function () {
     const { multiSigExecutor, multiSigManager, nodeStake, contractOwner, signerA, signerB, signerC, staker1, manager1, manager2 } = await loadFixture(
@@ -856,7 +915,6 @@ describe("MultiSigExecutor Contract", function () {
 
     console.log("contract:\t\t%s", nodeStake.target);
     console.log("functoinName:\t\t%s", "transferRewardTo");
-    console.log("args:\t\t\t[%s]", manager2.address);
     console.log(tx);
 
     claimableRewardBalance = await nodeStake.claimableRewardBalance("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
@@ -891,11 +949,60 @@ describe("MultiSigExecutor Contract", function () {
     )).to.emit(multiSigExecutor, "ExecuteTransaction")
       .withArgs(manager2.address, "c0002", nodeStake.target, BigInt(50e18), tx.data);
 
+    console.log("contract:\t\t%s", nodeStake.target);
+    console.log("functoinName:\t\t%s", "deposit");
+    console.log(tx);
     nodeBalanceType0 = await nodeStake.balanceOfNodeByDepositType("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0);
     expect(nodeBalanceType0).to.equal(hre.ethers.parseUnits("50", "ether"));
 
     contractBalance = await hre.ethers.provider.getBalance(multiSigExecutor.target);
     expect(contractBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    console.log(contractBalance);
+
+  });
+
+  it("Should transfer ETH", async function () {
+    const { multiSigExecutor, multiSigManager, nodeStake, contractOwner, signerA, signerB, signerC, staker1, manager1, manager2 } = await loadFixture(
+      deployContractFixture
+    );
+
+    const transferTx = await contractOwner.sendTransaction({ to: multiSigExecutor.target, value: hre.ethers.parseUnits("60", "ether") });
+    await transferTx.wait();
+
+    contractBalance = await hre.ethers.provider.getBalance(multiSigExecutor.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("60", "ether"));
+    console.log(contractBalance);
+
+    // emit ExecuteTransaction(msg.sender, _nonce, _to, _value, _data);
+    await expect(multiSigExecutor.connect(manager1).executeTransaction(nodeStake.target, BigInt(50e18), new Uint8Array(), "c0001",
+      makeExecuteSign(
+        signerA,
+        nodeStake.target,
+        BigInt(50e18),
+        new Uint8Array(),
+        "c0001"),
+      makeExecuteSign(
+        signerB,
+        nodeStake.target,
+        BigInt(50e18),
+        new Uint8Array(),
+        "c0001"),
+      makeExecuteSign(
+        signerC,
+        nodeStake.target,
+        BigInt(50e18),
+        new Uint8Array(),
+        "c0001")
+    )).emit(multiSigExecutor, "ExecuteTransaction")
+      .withArgs(manager1.address, "c0001", nodeStake.target, BigInt(50e18), new Uint8Array());
+
+
+    contractBalance = await hre.ethers.provider.getBalance(multiSigExecutor.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("10", "ether"));
+    console.log(contractBalance);
+
+    contractBalance = await hre.ethers.provider.getBalance(nodeStake.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("50", "ether"));
     console.log(contractBalance);
 
   });

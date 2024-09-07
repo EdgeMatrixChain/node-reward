@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -9,7 +8,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract MultiSigExecutor is ReentrancyGuard {
     using SafeMath for uint256;
-    using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
     // state of each signature verfiy.

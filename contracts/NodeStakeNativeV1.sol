@@ -36,8 +36,6 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     using SafeMath for uint256;
     using ECDSA for bytes32;
 
-    // IERC20 public immutable token; //Token's contract address for reward. Will be designated as EMC token (has been audited) contract address
-
     address public immutable releaseContract; //contract address for release. Will be designated as ReleaseVestingV1 (has been audited) contract address
 
     uint256 public tokenInPool; // total statked amount
@@ -50,17 +48,17 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     bool public canDeposit; // switch of deposit
 
     uint256 scheduleDuration; // duration for schedule
-    uint256 scheduleYieldRate; // Base rate by DurationUnits.Days1080
+    uint256 scheduleYieldRate; // yield rate for duration
 
     struct NodeInfo {
-        address beneficiary; // The address of the staker.
+        address beneficiary; // the address of the staker.
         uint256 accumulated; // amount of accumulated tokens the staker has deposited.
-        uint256 amount; // How many tokens the staker has deposited.
+        uint256 amount; // how many tokens the staker has deposited.
         uint256 debt; // token debt.
     }
 
     struct AccountInfo {
-        uint256 amount; // How many tokens the staker has.
+        uint256 amount; // how many tokens the staker has.
         uint256 claimed; // token debt.
     }
 
@@ -127,14 +125,6 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
     // Event to log the received native token
     event Received(address sender, uint amount);
-
-    /**
-     * @dev Throws if called by any account other than the manager.
-     */
-    modifier onlyManager() {
-        require(manager == msg.sender, "caller is not the manager");
-        _;
-    }
 
     /**
      * @dev Throws if called by any account other than the owner.
@@ -587,7 +577,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     ) external view returns (uint256) {
         require(bytes(_nodeId).length > 0, "claimableBalance: nodeId not good");
 
-        // transfer reward to unlocked account
+        // balance of account
         AccountInfo memory stakerAccount = unlockedAccounts[_nodeId];
         uint256 balance = stakerAccount.amount;
 
@@ -625,7 +615,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     ) external view returns (uint256) {
         require(bytes(_nodeId).length > 0, "claimableBalance: nodeId not good");
 
-        // transfer reward to unlocked account
+        // balance of account
         AccountInfo memory stakerAccount = unlockedAccounts[_nodeId];
         uint256 balance = stakerAccount.amount;
 
