@@ -99,10 +99,16 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
 
     event Deposited(address holder, uint256 amount, string nodeId);
 
-    event Withdrawed(address holder, uint256 amount, string nodeId);
+    event Withdrawed(
+        address sender,
+        address beneficiary,
+        uint256 amount,
+        string nodeId
+    );
 
     event Claimed(
-        address holder,
+        address sender,
+        address beneficiary,
         uint256 rewardAmount,
         uint256 interestAmount,
         string nodeId
@@ -364,7 +370,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         // transfer the interest tokens to the _beneficiary
         payable(_beneficiary).transfer(rewardBalance);
 
-        emit Claimed(_beneficiary, 0, rewardBalance, _nodeId);
+        emit Claimed(msg.sender, _beneficiary, 0, rewardBalance, _nodeId);
 
         // transfer withdrawed tokens to another contract.
         IReleaseVesing releaser = IReleaseVesing(releaseContract);
@@ -379,7 +385,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
             withdrawableBalance
         );
 
-        emit Withdrawed(msg.sender, withdrawableBalance, _nodeId);
+        emit Withdrawed(msg.sender, _beneficiary, withdrawableBalance, _nodeId);
     }
 
     function balanceOfNode(
@@ -466,12 +472,6 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     ) public view returns (VestingSchedule[] memory) {
         require(bytes(_nodeId).length > 0, "getSchedules: nodeId not good");
         VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
-        uint256 schedulesLength = schedules.length;
-        require(
-            schedulesLength > 0,
-            "VestingContract: no vesting schedules for this node"
-        );
-
         return schedules;
     }
 
@@ -664,6 +664,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         payable(_beneficiary).transfer(totalAmount);
 
         emit Claimed(
+            msg.sender,
             _beneficiary,
             accountAmount,
             totalAmount.sub(accountAmount),
