@@ -463,7 +463,7 @@ describe("NodeStakeNativeV1 Contract Test", function () {
         staker2.address,
         hre.ethers.parseUnits("0", "ether"),
         hre.ethers.parseUnits("10", "ether"),
-        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");;
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
     vesingScheduleList = await scheduleRelease.getVestingSchedule(staker2.address);
     expect(vesingScheduleList.length).to.equal(1);
@@ -825,7 +825,7 @@ describe("NodeStakeNativeV1 Contract Test", function () {
         test1.address,
         hre.ethers.parseUnits("0", "ether"),
         hre.ethers.parseUnits("60", "ether"),
-        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");;
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
     vesingScheduleList = await scheduleRelease.getVestingSchedule(test1.address);
     expect(vesingScheduleList.length).to.equal(1);
@@ -847,6 +847,7 @@ describe("NodeStakeNativeV1 Contract Test", function () {
     expect(node1Balance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
     test1Balance = await hre.ethers.provider.getBalance(test1.address);
+    console.log("test1Balance:\t\t%d", ethers.formatUnits(test1Balance, 18));
     expect(test1Balance).to.equal(hre.ethers.parseUnits("60", "ether"));
 
 

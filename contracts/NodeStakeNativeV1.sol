@@ -368,9 +368,10 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
         schedule.withdrawedTime = block.timestamp;
 
         // transfer the interest tokens to the _beneficiary
-        payable(_beneficiary).transfer(rewardBalance);
-
-        emit Claimed(msg.sender, _beneficiary, 0, rewardBalance, _nodeId);
+        if (rewardBalance > 0) {
+            payable(_beneficiary).transfer(rewardBalance);
+            emit Claimed(msg.sender, _beneficiary, 0, rewardBalance, _nodeId);
+        }
 
         // transfer withdrawed tokens to another contract.
         IReleaseVesing releaser = IReleaseVesing(releaseContract);
