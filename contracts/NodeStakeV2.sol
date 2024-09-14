@@ -88,6 +88,8 @@ contract NodeStakeV2 is ReentrancyGuard {
     }
 
     struct VestingSchedule {
+        // deposit type
+        uint256 depositType;
         // start time of the vesting period
         uint256 start;
         // duration of the vesting period(30days)
@@ -113,9 +115,20 @@ contract NodeStakeV2 is ReentrancyGuard {
 
     event Deposited(address holder, uint256 amount, string nodeId);
 
-    event Withdrawed(address holder, uint256 amount, string nodeId);
+    event Withdrawed(
+        address sender,
+        address beneficiary,
+        uint256 amount,
+        string nodeId
+    );
 
-    event Claimed(address holder, uint256 amount, string nodeId);
+    event Claimed(
+        address sender,
+        address beneficiary,
+        uint256 rewardAmount,
+        uint256 interestAmount,
+        string nodeId
+    );
 
     event TransferReward(address from, uint256 amount, string nodeId);
 
@@ -131,14 +144,6 @@ contract NodeStakeV2 is ReentrancyGuard {
         uint256 amountTotal,
         uint256 yieldRate
     );
-
-    /**
-     * @dev Throws if called by any account other than the manager.
-     */
-    modifier onlyManager() {
-        require(manager == msg.sender, "caller is not the manager");
-        _;
-    }
 
     /**
      * @dev Throws if called by any account other than the owner.
@@ -204,6 +209,11 @@ contract NodeStakeV2 is ReentrancyGuard {
         scheduleDuration = _scheduleDuration;
     }
 
+    // Function to get the contract's balance
+    function getBalance() public view returns (uint) {
+        return token.balanceOf(address(this));
+    }
+
     // update limit.
     function setLimit(uint256 _minLimit, uint256 _maxLimit) public onlyOwner {
         if (_maxLimit != 0) {
@@ -246,6 +256,7 @@ contract NodeStakeV2 is ReentrancyGuard {
     // Deposit tokens to contract
     function deposit(
         string memory _nodeId,
+        uint256 _depositType,
         uint256 _amount
     ) public checkTokenAllowance(_amount) onlyCanDeposit nonReentrant {
         require(_amount > 0, "deposit: amount not good");
@@ -271,7 +282,7 @@ contract NodeStakeV2 is ReentrancyGuard {
         node.accumulated = node.accumulated.add(_amount);
         tokenInPool = tokenInPool.add(_amount);
 
-        _createVestingSchedule(_nodeId, block.timestamp, _amount);
+        _createVestingSchedule(_nodeId, _depositType, block.timestamp, _amount);
 
         emit Deposited(msg.sender, _amount, _nodeId);
     }
@@ -365,10 +376,10 @@ contract NodeStakeV2 is ReentrancyGuard {
         schedule.rewarded = schedule.rewarded.add(rewardBalance);
         schedule.withdrawedTime = block.timestamp;
 
-        // transfer reward to unlocked account
-        AccountInfo storage stakerAccount = unlockedAccounts[_nodeId];
+        // transfer the interest tokens to the _beneficiary
         if (rewardBalance > 0) {
-            stakerAccount.amount = stakerAccount.amount.add(rewardBalance);
+            token.safeTransfer(_beneficiary, rewardBalance);
+            emit Claimed(msg.sender, _beneficiary, 0, rewardBalance, _nodeId);
         }
 
         // transfer withdrawed tokens to another contract.
@@ -389,7 +400,7 @@ contract NodeStakeV2 is ReentrancyGuard {
             withdrawableBalance
         );
 
-        emit Withdrawed(msg.sender, withdrawableBalance, _nodeId);
+        emit Withdrawed(msg.sender, _beneficiary, withdrawableBalance, _nodeId);
     }
 
     function balanceOfNode(
@@ -401,6 +412,31 @@ contract NodeStakeV2 is ReentrancyGuard {
         return node.amount;
     }
 
+    function balanceOfNodeByDepositType(
+        string memory _nodeId,
+        uint256 _depositType
+    ) external view returns (uint256) {
+        require(
+            bytes(_nodeId).length > 0,
+            "balanceOfNodeByDepositType: nodeId not good"
+        );
+
+        uint256 balance = 0;
+
+        // sum schedule's balance
+        VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
+        for (uint256 i = 0; i < schedules.length; i++) {
+            VestingSchedule memory schedule = schedules[i];
+            if (
+                schedule.depositType == _depositType && schedule.withdrawed == 0
+            ) {
+                balance = balance.add(schedule.amountTotal);
+            }
+        }
+
+        return balance;
+    }
+
     /**
      * @notice Creates a vesting schedule
      * @param _nodeId The ID of the node
@@ -410,6 +446,7 @@ contract NodeStakeV2 is ReentrancyGuard {
      */
     function _createVestingSchedule(
         string memory _nodeId,
+        uint256 _depositType,
         uint256 _start,
         uint256 _amountTotal
     ) internal {
@@ -421,6 +458,7 @@ contract NodeStakeV2 is ReentrancyGuard {
 
         vestingSchedules[_nodeId].push(
             VestingSchedule({
+                depositType: _depositType,
                 start: _start,
                 duration: scheduleDuration,
                 amountTotal: _amountTotal,
@@ -449,12 +487,6 @@ contract NodeStakeV2 is ReentrancyGuard {
     ) public view returns (VestingSchedule[] memory) {
         require(bytes(_nodeId).length > 0, "getSchedules: nodeId not good");
         VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
-        uint256 schedulesLength = schedules.length;
-        require(
-            schedulesLength > 0,
-            "VestingContract: no vesting schedules for this node"
-        );
-
         return schedules;
     }
 
@@ -571,6 +603,37 @@ contract NodeStakeV2 is ReentrancyGuard {
         return balance;
     }
 
+    // Balance of claimable interest tokens
+    function claimableInterestBalance(
+        string memory _nodeId
+    ) external view returns (uint256) {
+        require(bytes(_nodeId).length > 0, "claimableBalance: nodeId not good");
+
+        uint256 balance = 0;
+
+        // sum schedule's rewardBalance
+        VestingSchedule[] memory schedules = vestingSchedules[_nodeId];
+        for (uint256 i = 0; i < schedules.length; i++) {
+            VestingSchedule memory schedule = schedules[i];
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
+            balance = balance.add(rewardBalance);
+        }
+        return balance;
+    }
+
+    // Balance of claimable tokens
+    function claimableRewardBalance(
+        string memory _nodeId
+    ) external view returns (uint256) {
+        require(bytes(_nodeId).length > 0, "claimableBalance: nodeId not good");
+
+        // balance of account
+        AccountInfo memory stakerAccount = unlockedAccounts[_nodeId];
+        uint256 balance = stakerAccount.amount;
+
+        return balance;
+    }
+
     // Claim tokens from contract.
     function claim(
         string memory _nodeId,
@@ -591,8 +654,8 @@ contract NodeStakeV2 is ReentrancyGuard {
         );
 
         AccountInfo storage stakerAccount = unlockedAccounts[_nodeId];
+        uint256 accountAmount = stakerAccount.amount;
         uint256 totalAmount = stakerAccount.amount;
-
         // update unlocked account
         stakerAccount.amount = 0;
 
@@ -612,6 +675,12 @@ contract NodeStakeV2 is ReentrancyGuard {
         // transfer the tokens to the _beneficiary
         token.safeTransfer(_beneficiary, totalAmount);
 
-        emit Claimed(_beneficiary, totalAmount, _nodeId);
+        emit Claimed(
+            msg.sender,
+            _beneficiary,
+            accountAmount,
+            totalAmount.sub(accountAmount),
+            _nodeId
+        );
     }
 }
