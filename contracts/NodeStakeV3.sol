@@ -214,8 +214,6 @@ contract NodeStakeV3 is ReentrancyGuard {
         scheduleYieldRate = _scheduleYieldRate;
         scheduleDuration = _scheduleDuration;
 
-        // stakingToken = IMintableToken(_stakingToken);
-
         stakingToken = IMintableToken(
             new StakingToken(_stakingTokenName, _stakingTokenSymbol)
         );

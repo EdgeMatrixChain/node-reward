@@ -110,7 +110,7 @@ describe("NodeStakeV3 Contract Test", function () {
 
     staker1StBalance = await stakingToken.balanceOf(staker1);
     expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
-    const stakingTokenTotalSupply = await stakingToken.totalSupply();
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
     expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("1000", "ether"));
 
 
@@ -143,6 +143,11 @@ describe("NodeStakeV3 Contract Test", function () {
       .withArgs(staker1.address,
         BigInt(1000e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
+
+    staker1StBalance = await stakingToken.balanceOf(staker1);
+    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("2000", "ether"));
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
+    expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2000", "ether"));
 
     await rewardToken.connect(staker2).approve(nodeStake, BigInt(1e18));
     await expect(nodeStake.connect(staker2).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(1), BigInt(1e18)))
