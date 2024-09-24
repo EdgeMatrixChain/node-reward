@@ -53,6 +53,16 @@ describe("NodeStakeNativeV1 Contract Test", function () {
     return { nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken };
   }
 
+  it("Should revert by the mint", async function () {
+
+    const { nodeStake, scheduleRelease, owner, staker1, staker2, manager, stakingToken } = await loadFixture(
+      deployContractFixture
+    );
+
+    await expect(stakingToken.connect(staker1).mint(staker1.address, BigInt(100e18)))
+      .to.be.revertedWith("Ownable: caller is not the owner");
+
+  });
 
   it("Should deposit token by the staker", async function () {
 
@@ -122,12 +132,16 @@ describe("NodeStakeNativeV1 Contract Test", function () {
     console.log("\n----staker1 deposits 1000 tokens to 16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG----");
     await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(0), BigInt(1000e18), { value: hre.ethers.parseEther("1000") }))
       .to.emit(nodeStake, "Deposited")
-      .withArgs(staker1.address,
+      .withArgs(staker2.address,
         BigInt(1000e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
     staker1StBalance = await stakingToken.balanceOf(staker1);
-    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("2000", "ether"));
+    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
+    staker2StBalance = await stakingToken.balanceOf(staker2);
+    expect(staker2StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
     stakingTokenTotalSupply = await stakingToken.totalSupply();
     expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2000", "ether"));
 
@@ -325,6 +339,9 @@ describe("NodeStakeNativeV1 Contract Test", function () {
     staker1StBalance = await stakingToken.balanceOf(staker1);
     expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
 
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
+    expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("1100", "ether"));
+
     contractBalance = await hre.ethers.provider.getBalance(nodeStake.target);
     expect(contractBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
 
@@ -352,6 +369,9 @@ describe("NodeStakeNativeV1 Contract Test", function () {
 
     staker1StBalance = await stakingToken.balanceOf(staker1);
     expect(staker1StBalance).to.equal(hre.ethers.parseUnits("2100", "ether"));
+
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
+    expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2100", "ether"));
 
     contractBalance = await hre.ethers.provider.getBalance(nodeStake.target);
     expect(contractBalance).to.equal(hre.ethers.parseUnits("2100", "ether"));

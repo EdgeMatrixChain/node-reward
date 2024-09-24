@@ -285,9 +285,9 @@ contract NodeStakeNativeV3 is ReentrancyGuard {
         _createVestingSchedule(_nodeId, _depositType, block.timestamp, _amount);
 
         // mint staking token
-        stakingToken.mint(msg.sender, _amount);
+        stakingToken.mint(node.beneficiary, _amount);
 
-        emit Deposited(msg.sender, _amount, _nodeId);
+        emit Deposited(node.beneficiary, _amount, _nodeId);
     }
 
     // Bind beneficiary to node
