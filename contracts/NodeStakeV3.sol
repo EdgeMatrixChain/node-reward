@@ -308,9 +308,9 @@ contract NodeStakeV3 is ReentrancyGuard {
         );
 
         // mint staking token
-        stakingToken.mint(msg.sender, _amount);
+        stakingToken.mint(node.beneficiary, _amount);
 
-        emit Deposited(msg.sender, _amount, _nodeId);
+        emit Deposited(node.beneficiary, _amount, _nodeId);
     }
 
     // Bind beneficiary to node

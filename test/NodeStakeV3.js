@@ -140,12 +140,16 @@ describe("NodeStakeV3 Contract Test", function () {
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(1000e18));
     await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(0), BigInt(1000e18)))
       .to.emit(nodeStake, "Deposited")
-      .withArgs(staker1.address,
+      .withArgs(staker2.address,
         BigInt(1000e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
     staker1StBalance = await stakingToken.balanceOf(staker1);
-    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("2000", "ether"));
+    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
+    staker2StBalance = await stakingToken.balanceOf(staker2);
+    expect(staker2StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
     stakingTokenTotalSupply = await stakingToken.totalSupply();
     expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2000", "ether"));
 
@@ -368,6 +372,13 @@ describe("NodeStakeV3 Contract Test", function () {
         BigInt(1000e18),
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
+    staker1StBalance = await stakingToken.balanceOf(staker1);
+    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("2100", "ether"));
+    staker2StBalance = await stakingToken.balanceOf(staker2);
+    expect(staker2StBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
+    expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2100", "ether"));
+
     contractBalance = await rewardToken.balanceOf(nodeStake.target);
     expect(contractBalance).to.equal(hre.ethers.parseUnits("2100", "ether"));
 
@@ -501,9 +512,22 @@ describe("NodeStakeV3 Contract Test", function () {
       .to.be.revertedWith("beneficiary is invalid");
     await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 2, staker2.address))
       .to.be.revertedWith("schedule is not exsit");
+    await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0, staker2.address))
+      .to.be.revertedWith("checkTokenAllowance Error");
+
+    await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
+    await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0, staker2.address))
+      .to.be.revertedWith("ERC20: burn amount exceeds balance");
 
     await stakingToken.connect(staker1).transfer(staker2, hre.ethers.parseUnits("1000", 18));
-    await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
+    staker1StBalance = await stakingToken.balanceOf(staker1);
+    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
+    staker2StBalance = await stakingToken.balanceOf(staker2);
+    expect(staker2StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
+    expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2100", "ether"));
+
+    // await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
     await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0, staker2.address))
       .to.emit(nodeStake, "Withdrawed")
       .withArgs(staker2.address,
@@ -516,6 +540,13 @@ describe("NodeStakeV3 Contract Test", function () {
         hre.ethers.parseUnits("0", "ether"),
         hre.ethers.parseUnits("10", "ether"),
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+
+    staker1StBalance = await stakingToken.balanceOf(staker1);
+    expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
+    staker2StBalance = await stakingToken.balanceOf(staker2);
+    expect(staker2StBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    stakingTokenTotalSupply = await stakingToken.totalSupply();
+    expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("1100", "ether"));
 
     vesingScheduleList = await scheduleRelease.getVestingSchedule(staker2.address);
     expect(vesingScheduleList.length).to.equal(1);

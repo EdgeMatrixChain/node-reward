@@ -503,16 +503,23 @@ describe("NodeStakeNativeV1 Contract Test", function () {
       .to.be.revertedWith("beneficiary is invalid");
     await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 2, staker2.address))
       .to.be.revertedWith("schedule is not exsit");
+    await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0, staker2.address))
+      .to.be.revertedWith("checkTokenAllowance Error");
+
+    await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
+    await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0, staker2.address))
+      .to.be.revertedWith("ERC20: burn amount exceeds balance");
 
     await stakingToken.connect(staker1).transfer(staker2, hre.ethers.parseUnits("1000", 18));
     staker1StBalance = await stakingToken.balanceOf(staker1);
     expect(staker1StBalance).to.equal(hre.ethers.parseUnits("1100", "ether"));
     staker2StBalance = await stakingToken.balanceOf(staker2);
     expect(staker2StBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
-    await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
     stakingTokenTotalSupply = await stakingToken.totalSupply();
     expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("2100", "ether"));
 
+
+    // await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
     await expect(nodeStake.connect(staker2).withdraw("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0, staker2.address))
       .to.emit(nodeStake, "Withdrawed")
       .withArgs(staker2.address,
