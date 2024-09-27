@@ -863,7 +863,7 @@ describe("MultiSigExecutor Contract", function () {
       }
     ];
 
-    // call setManager
+    // call transferRewardTo
     tx = createTx(
       nodeStake.target,
       abi,
@@ -921,6 +921,7 @@ describe("MultiSigExecutor Contract", function () {
     console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
     expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("50", "ether"));
 
+    // call deposit
     tx = createTx(
       nodeStake.target,
       abi,
