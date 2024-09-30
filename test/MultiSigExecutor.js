@@ -913,6 +913,12 @@ describe("MultiSigExecutor Contract", function () {
         "c0001")
     )).to.be.revertedWith("tx already executed");
 
+    txState = await multiSigExecutor.connect(manager2).getTransactionState("c0001");
+    expect(txState).to.equal(true);
+
+    txState = await multiSigExecutor.connect(manager2).getTransactionState("c0002");
+    expect(txState).to.equal(false);
+
     console.log("contract:\t\t%s", nodeStake.target);
     console.log("functoinName:\t\t%s", "transferRewardTo");
     console.log(tx);

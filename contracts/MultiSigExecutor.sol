@@ -132,4 +132,10 @@ contract MultiSigExecutor is ReentrancyGuard {
         signerB = _signerB;
         signerC = _signerC;
     }
+
+    function getTransactionState(
+        string memory _nonce
+    ) public view returns (bool state) {
+        return verifiedState[_nonce];
+    }
 }
