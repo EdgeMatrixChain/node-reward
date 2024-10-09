@@ -55,8 +55,9 @@ contract NodeStakeV4 is ReentrancyGuard {
     address public owner; // address of the owner
 
     uint256 public minLimit; // minimum limit of stake
-    // uint256 public maxLimit; // maximum limit of stake
+
     bool public canDeposit; // switch of deposit
+    bool public canWithdraw; // switch of withdraw
 
     uint256 scheduleDuration; // duration for schedule
     uint256 scheduleYieldRate; // Base rate by DurationUnits.Days1080
@@ -160,7 +161,15 @@ contract NodeStakeV4 is ReentrancyGuard {
      * @dev Throws if canDeposit is false.
      */
     modifier onlyCanDeposit() {
-        require(canDeposit, "deposit stop");
+        require(canDeposit, "Deposit has been banned");
+        _;
+    }
+
+    /**
+     * @dev Throws if canWithdraw is false.
+     */
+    modifier onlyCanWithdraw() {
+        require(canWithdraw, "withdrawls and claims have been banned");
         _;
     }
 
@@ -209,6 +218,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         manager = _manager;
         owner = msg.sender;
         canDeposit = true;
+        canWithdraw = true;
 
         scheduleYieldRate = _scheduleYieldRate;
         scheduleDuration = _scheduleDuration;
@@ -231,6 +241,11 @@ contract NodeStakeV4 is ReentrancyGuard {
     // update canDeposit state.
     function setCanDeposit(bool _canDeposit) public onlyOwner {
         canDeposit = _canDeposit;
+    }
+
+    // update canWithdraw state.
+    function setCanWithdraw(bool _canWithdraw) public onlyOwner {
+        canWithdraw = _canWithdraw;
     }
 
     /**
@@ -343,7 +358,7 @@ contract NodeStakeV4 is ReentrancyGuard {
     function withdraw(
         uint256 _scheduleIndex,
         address _beneficiary
-    ) public nonReentrant {
+    ) public nonReentrant onlyCanWithdraw {
         require(_beneficiary != address(0), "beneficiary is the zero address");
 
         VestingSchedule[] storage schedules = vestingSchedules[msg.sender];
@@ -582,7 +597,10 @@ contract NodeStakeV4 is ReentrancyGuard {
     }
 
     // Claim tokens from contract.
-    function claim(address _staker, address _beneficiary) public nonReentrant {
+    function claim(
+        address _staker,
+        address _beneficiary
+    ) public nonReentrant onlyCanWithdraw {
         require(_beneficiary != address(0), "beneficiary is the zero address");
 
         require(

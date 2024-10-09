@@ -60,9 +60,12 @@ describe("NodeStakeV4 Contract Test", function () {
     const stakingTokenTotalSymbol = await stakingToken.symbol();
     console.log("stakingTokenTotalSymbol:\t\t%s", stakingTokenTotalSymbol);
 
+
     await rewardToken.transfer(staker1, hre.ethers.parseUnits("3000", 18));
     await rewardToken.transfer(staker2, hre.ethers.parseUnits("5000", 18));
 
+    await expect(stakingToken.mint(test2, hre.ethers.parseUnits("3000", 18)))
+      .to.be.revertedWith("Ownable: caller is not the owner");
 
     return { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken };
   }
@@ -129,10 +132,13 @@ describe("NodeStakeV4 Contract Test", function () {
     await expect(nodeStake.connect(manager).setCanDeposit(false))
       .to.be.revertedWith("caller is not the owner");
 
+    await expect(nodeStake.connect(manager).setCanWithdraw(false))
+      .to.be.revertedWith("caller is not the owner");
+
     await nodeStake.connect(owner).setCanDeposit(false);
     await rewardToken.connect(staker1).approve(nodeStake, BigInt(1000e18));
     await expect(nodeStake.connect(staker1).deposit("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", BigInt(1), BigInt(1000e18)))
-      .to.be.revertedWith("deposit stop");
+      .to.be.revertedWith("Deposit has been banned");
 
     await nodeStake.connect(owner).setCanDeposit(true);
 
@@ -571,6 +577,13 @@ describe("NodeStakeV4 Contract Test", function () {
     expect(stakingTokenTotalSupply).to.equal(hre.ethers.parseUnits("1100", "ether"));
 
     // await stakingToken.connect(staker2).approve(nodeStake, BigInt(1000e18));
+    await nodeStake.connect(owner).setCanWithdraw(false);
+
+    await expect(nodeStake.connect(staker1).withdraw(0, staker2.address))
+      .to.be.revertedWith("withdrawls and claims have been banned");
+
+    await nodeStake.connect(owner).setCanWithdraw(true);
+
     await expect(nodeStake.connect(staker1).withdraw(0, staker2.address))
       .to.emit(nodeStake, "Withdrawed")
       .withArgs(staker1.address,
@@ -631,6 +644,13 @@ describe("NodeStakeV4 Contract Test", function () {
     expect(claimableInterestBalance).to.equal(hre.ethers.parseUnits("1", "ether"));
 
     console.log("--claim %d tokens--", ethers.formatUnits(claimableBalance, 18));
+    await nodeStake.connect(owner).setCanWithdraw(false);
+
+    await expect(nodeStake.connect(staker1).claim(staker1.address, staker2.address))
+      .to.be.revertedWith("withdrawls and claims have been banned");
+
+    await nodeStake.connect(owner).setCanWithdraw(true);
+
     await expect(nodeStake.connect(staker1).claim(staker1.address, staker2.address))
       .to.emit(nodeStake, "Claimed")
       .withArgs(staker1.address,
