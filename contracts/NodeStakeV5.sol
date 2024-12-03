@@ -6,15 +6,12 @@ pragma solidity ^0.8.0;
 
 // import "@openzeppelin/contracts@4.9.3/token/ERC20/utils/SafeERC20.sol";
 // import "@openzeppelin/contracts@4.9.3/utils/math/SafeMath.sol";
-// import "@openzeppelin/contracts@4.9.3/utils/cryptography/ECDSA.sol";
 // import "@openzeppelin/contracts@4.9.3/security/ReentrancyGuard.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./StakingToken.sol";
-// import "./NodeStakeV4Lib.sol";
 
 // import "hardhat/console.sol";
 
@@ -39,6 +36,10 @@ interface IReleaseVesing {
     ) external;
 }
 
+interface INodeBind {
+    function ownerOfNode(string memory _nodeId) external view returns (address);
+}
+
 struct VestingSchedule {
     // deposit type
     uint256 depositType;
@@ -60,20 +61,20 @@ struct VestingSchedule {
     string nodeId;
 }
 
-contract NodeStakeV4 is ReentrancyGuard {
+contract NodeStakeV5 is ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
-    using ECDSA for bytes32;
 
     IERC20 public immutable token; //Token's contract address for reward. Will be designated as EMC token (has been audited) contract address
 
     IMintableToken public immutable stakingToken;
 
+    INodeBind public immutable bindContract;
+
     address public immutable releaseContract; //contract address for release. Will be designated as ReleaseVestingV1 (has been audited) contract address
 
     uint256 public tokenInPool; // total statked amount
 
-    address public manager; // address of the manager
     address public owner; // address of the owner
 
     uint256 public minLimit; // minimum limit of stake
@@ -84,24 +85,14 @@ contract NodeStakeV4 is ReentrancyGuard {
     uint256 scheduleDuration; // duration for schedule
     uint256 scheduleYieldRate; // Base rate by DurationUnits.Days1080
 
-    struct NodeInfo {
-        address beneficiary; // The address of the staker.
-        uint256 accumulated; // amount of accumulated tokens the staker has deposited.
-    }
-
     struct AccountInfo {
         uint256 amount; // How many tokens the staker has.
         uint256 claimed; // token debt.
     }
 
-    // Info of each node that stakes tokens.
-    mapping(string => NodeInfo) public nodeInfo;
-
     // Unlocked account of each staker.
     mapping(address => AccountInfo) internal unlockedAccounts;
 
-    // state of each signature verfiy.
-    mapping(string => bool) private verifiedState;
 
     // Modifier to check token allowance
     modifier checkTokenAllowance(uint amount) {
@@ -116,8 +107,6 @@ contract NodeStakeV4 is ReentrancyGuard {
      * @notice List of vesting schedules for each staker
      */
     mapping(address => VestingSchedule[]) public vestingSchedules;
-
-    event Bind(address holder, string nodeId);
 
     event Deposited(
         address holder,
@@ -179,33 +168,10 @@ contract NodeStakeV4 is ReentrancyGuard {
         _;
     }
 
-    /**
-     * @notice Verify bind signature
-     */
-    modifier verifyBindSigner(
-        string memory nodeId,
-        string memory nonce,
-        bytes memory signature
-    ) {
-        require(bytes(nodeId).length > 0, "nodeId not good");
-        require(!verifiedState[nonce], "signature validation failed");
-
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(block.chainid, msg.sender, nodeId, nonce)
-        );
-
-        require(
-            manager == messageHash.toEthSignedMessageHash().recover(signature),
-            "signature validation failed"
-        );
-        verifiedState[nonce] = true;
-        _;
-    }
-
     constructor(
+        address _bindContract,
         address _token,
         address _releaseContract,
-        address _manager,
         uint256 _scheduleYieldRate,
         uint256 _scheduleDuration,
         string memory _stakingTokenName,
@@ -214,14 +180,17 @@ contract NodeStakeV4 is ReentrancyGuard {
         require(_scheduleDuration > 0, "_scheduleDuration is zero");
         require(_token != address(0), "_token is the zero address");
         require(
+            _bindContract != address(0),
+            "_bindContract is the zero address"
+        );
+        require(
             _releaseContract != address(0),
             "_releaseContract is the zero address"
         );
-        require(_manager != address(0), "_manager is the zero address");
 
+        bindContract = INodeBind(_bindContract);
         token = IERC20(_token);
         releaseContract = _releaseContract;
-        manager = _manager;
         owner = msg.sender;
         canDeposit = true;
         canWithdraw = true;
@@ -233,11 +202,6 @@ contract NodeStakeV4 is ReentrancyGuard {
             new StakingToken(_stakingTokenName, _stakingTokenSymbol)
         );
     }
-
-    // // Function to get the contract's balance
-    // function getBalance() public view returns (uint) {
-    //     return token.balanceOf(address(this));
-    // }
 
     // update limit.
     function setLimit(uint256 _minLimit) public onlyOwner {
@@ -266,12 +230,6 @@ contract NodeStakeV4 is ReentrancyGuard {
         emit OwnershipTransferred(oldOwner, newOwner);
     }
 
-    // Update the manager.
-    function setManager(address _manager) public onlyOwner {
-        require(_manager != address(0), "_manager is the zero address");
-        manager = _manager;
-    }
-
     // Deposit tokens to contract
     function deposit(
         string memory _nodeId,
@@ -283,20 +241,15 @@ contract NodeStakeV4 is ReentrancyGuard {
 
         require(_amount >= minLimit, "less than minimum limit");
 
-        NodeInfo storage node = nodeInfo[_nodeId];
-
-        require(
-            node.beneficiary != address(0),
-            "_beneficiary is the zero address"
-        );
+        address beneficiary = bindContract.ownerOfNode(_nodeId);
+        require(beneficiary != address(0), "_beneficiary is the zero address");
 
         // transfer the tokens to be locked to the contract
         token.safeTransferFrom(msg.sender, address(this), _amount);
 
-        node.accumulated = node.accumulated.add(_amount);
         tokenInPool = tokenInPool.add(_amount);
 
-        vestingSchedules[node.beneficiary].push(
+        vestingSchedules[beneficiary].push(
             VestingSchedule({
                 depositType: _depositType,
                 start: block.timestamp,
@@ -319,45 +272,9 @@ contract NodeStakeV4 is ReentrancyGuard {
         );
 
         // mint staking token
-        stakingToken.mint(node.beneficiary, _amount);
+        stakingToken.mint(beneficiary, _amount);
 
-        emit Deposited(node.beneficiary, _amount, _nodeId, _depositType);
-    }
-
-    // Bind beneficiary to node
-    function bindNode(
-        string memory _nodeId,
-        address _beneficiary,
-        string memory _nonce,
-        bytes memory _signature
-    ) public onlyCanDeposit verifyBindSigner(_nodeId, _nonce, _signature) {
-        require(_beneficiary != address(0), "_owner is the zero address");
-
-        NodeInfo storage node = nodeInfo[_nodeId];
-        require(
-            node.beneficiary == address(0) || node.beneficiary == msg.sender,
-            "caller is not beneficiary"
-        );
-        node.beneficiary = _beneficiary;
-
-        emit Bind(_beneficiary, _nodeId);
-    }
-
-    // Rebind beneficiary to node
-    function rebind(
-        string memory _nodeId,
-        address _beneficiary
-    ) public onlyCanDeposit {
-        require(_beneficiary != address(0), "_owner is the zero address");
-
-        NodeInfo storage node = nodeInfo[_nodeId];
-        require(
-            node.beneficiary != address(0) && node.beneficiary == msg.sender,
-            "caller is not beneficiary"
-        );
-        node.beneficiary = _beneficiary;
-
-        emit Bind(_beneficiary, _nodeId);
+        emit Deposited(beneficiary, _amount, _nodeId, _depositType);
     }
 
     // Withdraw staked tokens from contract.
@@ -438,9 +355,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         VestingSchedule[] memory schedules = vestingSchedules[_staker];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule memory schedule = schedules[i];
-            (, uint256 rewardBalance, ) = _vestedAmount(
-                schedule
-            );
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             balance = balance.add(rewardBalance);
         }
         return balance;
@@ -566,16 +481,14 @@ contract NodeStakeV4 is ReentrancyGuard {
         require(_amount > 0, "amount not good");
         require(bytes(_nodeId).length > 0, "tnodeId not good");
 
-        NodeInfo memory node = nodeInfo[_nodeId];
-        require(
-            node.beneficiary != address(0),
-            "_beneficiary is the zero address"
-        );
+        address beneficiary = bindContract.ownerOfNode(_nodeId);
+
+        require(beneficiary != address(0), "_beneficiary is the zero address");
 
         token.safeTransferFrom(msg.sender, address(this), _amount);
 
         // transfer reward to unlocked account
-        AccountInfo storage stakerAccount = unlockedAccounts[node.beneficiary];
+        AccountInfo storage stakerAccount = unlockedAccounts[beneficiary];
         stakerAccount.amount = stakerAccount.amount.add(_amount);
 
         emit TransferReward(msg.sender, _amount, _nodeId);
@@ -591,9 +504,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         VestingSchedule[] memory schedules = vestingSchedules[_staker];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule memory schedule = schedules[i];
-            (, uint256 rewardBalance, ) = _vestedAmount(
-                schedule
-            );
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             balance = balance.add(rewardBalance);
         }
         return balance;
@@ -632,9 +543,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         VestingSchedule[] storage schedules = vestingSchedules[_staker];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule storage schedule = schedules[i];
-            (, uint256 rewardBalance, ) = _vestedAmount(
-                schedule
-            );
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             // update schedule's amount
             schedule.rewarded = schedule.rewarded.add(rewardBalance);
 

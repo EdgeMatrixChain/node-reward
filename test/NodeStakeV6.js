@@ -17,7 +17,7 @@ const ONE_ETHER = BigInt(1e18);
 const ONE_USDT = BigInt(1e6);
 
 
-describe("NodeStakeV4 Contract Test", function () {
+describe("NodeStakeV6 Contract Test", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
@@ -40,13 +40,17 @@ describe("NodeStakeV4 Contract Test", function () {
     // await stakingToken.waitForDeployment();
 
 
+    // deploy NodeBindV1 contract
+    const nodeBind = await hre.ethers.deployContract("NodeBindV1", [manager]);
+    await nodeBind.waitForDeployment();
+
     const days1080RewardRate = hre.ethers.parseUnits("0.36", "ether");
-    const nodeStake = await hre.ethers.deployContract("NodeStakeV4", [rewardToken, scheduleRelease, manager, days1080RewardRate, 36, "Staking Token", "STST"]);
+    const nodeStake = await hre.ethers.deployContract("NodeStakeV6", [nodeBind, rewardToken, scheduleRelease, days1080RewardRate, 36, "Staking Token", "STST"]);
     // const nodeStake = await hre.ethers.deployContract("NodeStakeV3", [rewardToken, scheduleRelease, manager, days1080RewardRate, 36, stakingToken]);
     await nodeStake.waitForDeployment();
 
 
-    // get staking token contract
+    // get staking token contract¬
     const stakingTokenAddress = await nodeStake.stakingToken();
     console.log("stakingTokenAddress:\t\t%o", stakingTokenAddress);
     const stakingTokenContract = await ethers.getContractFactory("StakingToken");
@@ -67,13 +71,13 @@ describe("NodeStakeV4 Contract Test", function () {
     await expect(stakingToken.mint(test2, hre.ethers.parseUnits("3000", 18)))
       .to.be.revertedWith("Ownable: caller is not the owner");
 
-    return { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken };
+    return { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken, nodeBind };
   }
 
 
   it("Should deposit token by the staker", async function () {
 
-    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, stakingToken } = await loadFixture(
+    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, stakingToken, nodeBind } = await loadFixture(
       deployContractFixture
     );
 
@@ -84,26 +88,26 @@ describe("NodeStakeV4 Contract Test", function () {
 
     // deposit tokens 
     console.log("\n----staker1 bindNode 16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU----");
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
       .to.be.revertedWith("signature validation failed");
-    await expect(nodeStake.connect(staker2).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker2.address.toLowerCase(), "a01232")))
+    await expect(nodeBind.connect(staker2).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker2.address.toLowerCase(), "a01232")))
       .to.be.revertedWith("signature validation failed");
-    await expect(nodeStake.connect(staker2).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address, "a01232", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker2.address.toLowerCase(), "a01232")))
+    await expect(nodeBind.connect(staker2).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address, "a01232", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker2.address.toLowerCase(), "a01232")))
       .to.be.revertedWith("caller is not beneficiary");
-    await expect(nodeStake.connect(staker2).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address))
+    await expect(nodeBind.connect(staker2).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address))
       .to.be.revertedWith("caller is not beneficiary");
 
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address, "b01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "b01231")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address, "b01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "b01231")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker2.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
-    await expect(nodeStake.connect(staker2).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker2).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -118,14 +122,14 @@ describe("NodeStakeV4 Contract Test", function () {
 
 
     console.log("\n----staker1 bindNode 16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG----");
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1.address, "a01232", makeBindSign(manager, '16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG', staker1.address.toLowerCase(), "a01232")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1.address, "a01232", makeBindSign(manager, '16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG', staker1.address.toLowerCase(), "a01232")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
     console.log("\n----staker1 rebind 16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG to staker2----");
-    await expect(nodeStake.connect(staker1).rebind("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker2.address))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).rebind("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker2.address))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker2.address,
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
@@ -360,14 +364,14 @@ describe("NodeStakeV4 Contract Test", function () {
 
 
     console.log("\n----staker2 rebind 16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG to staker1----");
-    await expect(nodeStake.connect(staker2).rebind("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1.address))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker2).rebind("16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG", staker1.address))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAmDevknQd5BncjmLiwiLLdmbDRutqDb5rohFDUX2eDZssG");
 
     console.log("\n----staker2 bindNode 16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC----");
-    await expect(nodeStake.connect(staker2).bindNode("16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC", staker2.address, "a01233", makeBindSign(manager, '16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC', staker2.address.toLowerCase(), "a01233")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker2).bindNode("16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC", staker2.address, "a01233", makeBindSign(manager, '16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC', staker2.address.toLowerCase(), "a01233")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker2.address,
         "16Uiu2HAmQkbuGb3K3DmCyEDvKumSVCphVJCGPGHNoc4CobJbxfsC");
 
@@ -414,7 +418,7 @@ describe("NodeStakeV4 Contract Test", function () {
 
   it("Should withdrw and claim token by the staker who deposit", async function () {
 
-    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, stakingToken } = await loadFixture(
+    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, stakingToken, nodeBind } = await loadFixture(
       deployContractFixture
     );
 
@@ -424,8 +428,8 @@ describe("NodeStakeV4 Contract Test", function () {
     await nodeStake.connect(owner).setLimit(BigInt(100e18));
 
     // deposit tokens 
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -497,27 +501,27 @@ describe("NodeStakeV4 Contract Test", function () {
     console.log("tokenInPool:\t\t%d", ethers.formatUnits(tokenInPool, 18));
     expect(tokenInPool).to.equal(hre.ethers.parseUnits("1100", "ether"));
 
-    // transfer reward tokens to node
-    await rewardToken.connect(owner).approve(nodeStake, BigInt(100e18));
-    await expect(nodeStake.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(40e18)))
-      .to.emit(nodeStake, "TransferReward")
-      .withArgs(owner.address,
-        hre.ethers.parseUnits("40", "ether"),
-        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+    // // transfer reward tokens to node
+    // await rewardToken.connect(owner).approve(nodeStake, BigInt(100e18));
+    // await expect(nodeStake.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(40e18)))
+    //   .to.emit(nodeStake, "TransferReward")
+    //   .withArgs(owner.address,
+    //     hre.ethers.parseUnits("40", "ether"),
+    //     "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
-    await expect(nodeStake.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(60e18)))
-      .to.emit(nodeStake, "TransferReward")
-      .withArgs(owner.address,
-        hre.ethers.parseUnits("60", "ether"),
-        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+    // await expect(nodeStake.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(60e18)))
+    //   .to.emit(nodeStake, "TransferReward")
+    //   .withArgs(owner.address,
+    //     hre.ethers.parseUnits("60", "ether"),
+    //     "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
-    claimableRewardBalance = await nodeStake.claimableRewardBalance(staker1.address);
-    console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
-    expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
+    // claimableRewardBalance = await nodeStake.claimableRewardBalance(staker1.address);
+    // console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
+    // expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
 
-    claimableInterestBalance = await nodeStake.claimableInterestBalance(staker1.address);
-    console.log("claimableInterestBalance:\t%d", claimableInterestBalance);
-    expect(claimableInterestBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    claimableBalance = await nodeStake.claimableBalance(staker1.address);
+    console.log("claimableBalance:\t%d", claimableBalance);
+    expect(claimableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
 
     const startTime = await time.latest() + 60;
@@ -536,9 +540,6 @@ describe("NodeStakeV4 Contract Test", function () {
     expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
     expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
-    claimableBalance = await nodeStake.claimableBalance(staker1.address);
-    console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
-    expect(claimableBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
 
     await expect(nodeStake.connect(staker1).withdraw(0, staker1.address))
       .to.be.revertedWith("withdrawableBalance is zero");
@@ -563,17 +564,11 @@ describe("NodeStakeV4 Contract Test", function () {
 
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
-    expect(claimableBalance).to.equal(hre.ethers.parseUnits("111", "ether")); // 100+10+1
-    claimableRewardBalance = await nodeStake.claimableRewardBalance(staker1.address);
-    console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
-    expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
-    claimableInterestBalance = await nodeStake.claimableInterestBalance(staker1);
-    console.log("claimableInterestBalance:\t%d", claimableInterestBalance);
-    expect(claimableInterestBalance).to.equal(hre.ethers.parseUnits("11", "ether"));
+    expect(claimableBalance).to.equal(hre.ethers.parseUnits("11", "ether")); // 10+1
 
     console.log("\n----staker1 rebind 16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU to staker2----");
-    await expect(nodeStake.connect(staker1).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker2.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -624,7 +619,6 @@ describe("NodeStakeV4 Contract Test", function () {
       .to.emit(nodeStake, "Claimed")
       .withArgs(staker1.address,
         staker2.address,
-        hre.ethers.parseUnits("0", "ether"),
         hre.ethers.parseUnits("10", "ether"));
 
     staker1StBalance = await stakingToken.balanceOf(staker1);
@@ -666,13 +660,7 @@ describe("NodeStakeV4 Contract Test", function () {
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
-    expect(claimableBalance).to.equal(hre.ethers.parseUnits("101", "ether")); //100 + 1
-    claimableRewardBalance = await nodeStake.claimableRewardBalance(staker1.address);
-    console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
-    expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
-    claimableInterestBalance = await nodeStake.claimableInterestBalance(staker1.address);
-    console.log("claimableInterestBalance:\t%d", claimableInterestBalance);
-    expect(claimableInterestBalance).to.equal(hre.ethers.parseUnits("1", "ether"));
+    expect(claimableBalance).to.equal(hre.ethers.parseUnits("1", "ether")); //1
 
     console.log("--claim %d tokens--", ethers.formatUnits(claimableBalance, 18));
     await nodeStake.connect(owner).setCanWithdraw(false);
@@ -686,7 +674,6 @@ describe("NodeStakeV4 Contract Test", function () {
       .to.emit(nodeStake, "Claimed")
       .withArgs(staker1.address,
         staker2.address,
-        hre.ethers.parseUnits("100", "ether"),
         hre.ethers.parseUnits("1", "ether"));
     [withdrawableBalance, rewardBalance, amountBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
     expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
@@ -743,7 +730,7 @@ describe("NodeStakeV4 Contract Test", function () {
 
   it("Should withdrw 50% token by the staker who deposit", async function () {
 
-    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken } = await loadFixture(
+    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken, nodeBind } = await loadFixture(
       deployContractFixture
     );
 
@@ -753,8 +740,8 @@ describe("NodeStakeV4 Contract Test", function () {
     await nodeStake.connect(owner).setLimit(BigInt(100e18));
 
     // deposit tokens 
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -842,16 +829,10 @@ describe("NodeStakeV4 Contract Test", function () {
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
     expect(claimableBalance).to.equal(hre.ethers.parseUnits("30", "ether")); // 30
-    claimableRewardBalance = await nodeStake.claimableRewardBalance(staker1.address);
-    console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
-    expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
-    claimableInterestBalance = await nodeStake.claimableInterestBalance(staker1.address);
-    console.log("claimableInterestBalance:\t%d", claimableInterestBalance);
-    expect(claimableInterestBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
 
     console.log("\n----staker1 rebind 16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU to staker2----");
-    await expect(nodeStake.connect(staker1).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).rebind("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker2.address))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker2.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -867,7 +848,6 @@ describe("NodeStakeV4 Contract Test", function () {
       .withArgs(
         staker1.address,
         test1.address,
-        hre.ethers.parseUnits("0", "ether"),
         hre.ethers.parseUnits("30", "ether"));
 
     vesingScheduleList = await scheduleRelease.getVestingSchedule(test1.address);
@@ -894,7 +874,7 @@ describe("NodeStakeV4 Contract Test", function () {
 
   it("Should withdrw 100% token by the staker who deposit", async function () {
 
-    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken } = await loadFixture(
+    const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken, nodeBind } = await loadFixture(
       deployContractFixture
     );
 
@@ -908,8 +888,8 @@ describe("NodeStakeV4 Contract Test", function () {
     // await tx.wait();
 
     // deposit tokens 
-    await expect(nodeStake.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
-      .to.emit(nodeStake, "Bind")
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeBind, "Bind")
       .withArgs(staker1.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -963,12 +943,6 @@ describe("NodeStakeV4 Contract Test", function () {
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
     expect(claimableBalance).to.equal(hre.ethers.parseUnits("50", "ether")); // 50 = 1000 * 0.01 * 5
-    claimableRewardBalance = await nodeStake.claimableRewardBalance(staker1.address);
-    console.log("claimableRewardBalance:\t%d", claimableRewardBalance);
-    expect(claimableRewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
-    claimableInterestBalance = await nodeStake.claimableInterestBalance(staker1.address);
-    console.log("claimableInterestBalance:\t%d", claimableInterestBalance);
-    expect(claimableInterestBalance).to.equal(hre.ethers.parseUnits("50", "ether")); // 50 = 1000 * 0.01 * 5
 
     console.log("--withdraw %d tokens--", ethers.formatUnits(withdrawableBalance, 18));
     await stakingToken.connect(staker1).approve(nodeStake, BigInt(1000e18));
@@ -982,7 +956,6 @@ describe("NodeStakeV4 Contract Test", function () {
       .withArgs(
         staker1.address,
         test1.address,
-        hre.ethers.parseUnits("0", "ether"),
         hre.ethers.parseUnits("50", "ether"));
 
     vesingScheduleList = await scheduleRelease.getVestingSchedule(test1.address);
@@ -1024,6 +997,14 @@ describe("NodeStakeV4 Contract Test", function () {
     expect(contractBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
 
     console.log("contractBalance:\t%d", ethers.formatUnits(contractBalance, 18));
+
+
+    await expect(nodeStake.connect(staker1).withdrawForMigration(BigInt(100e18)))
+      .to.be.revertedWith("caller is not the owner");
+
+    await nodeStake.connect(owner).withdrawForMigration(BigInt(100e18));
+    contractBalance = await rewardToken.balanceOf(nodeStake.target);
+    expect(contractBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
   });
 
