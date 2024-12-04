@@ -119,6 +119,15 @@ describe("NodeRewardV1 Contract Test", function () {
         test1.address,
         hre.ethers.parseUnits("25", "ether"),
         60);
+
+    withdrawed = await nodeReward.withdrawed(staker1.address);
+    console.log("withdrawed:\t\t%d", ethers.formatUnits(withdrawed, 18));
+    expect(withdrawed).to.equal(hre.ethers.parseUnits("100", "ether"));
+
+    tokenInPool = await nodeReward.tokenInPool();
+    console.log("tokenInPool:\t\t%d", ethers.formatUnits(tokenInPool, 18));
+    expect(tokenInPool).to.equal(hre.ethers.parseUnits("900", "ether"));
+
     withdrawableBalance = await nodeReward.withdrawableBalance(staker1.address);
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("900", "ether")); // 30
@@ -162,6 +171,10 @@ describe("NodeRewardV1 Contract Test", function () {
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
 
+    withdrawableBalance = await nodeReward.withdrawableBalance(staker2.address);
+    console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
+    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
     console.log("--withdrawed %d tokens--", ethers.formatUnits(BigInt(1000e18), 18));
     await expect(nodeReward.connect(staker1).withdraw(BigInt(1000e18), 60, test1.address))
       .to.emit(nodeReward, "Withdrawed")
@@ -169,6 +182,15 @@ describe("NodeRewardV1 Contract Test", function () {
         test1.address,
         hre.ethers.parseUnits("250", "ether"),
         60);
+
+    withdrawed = await nodeReward.withdrawed(staker1.address);
+    console.log("withdrawed:\t\t%d", ethers.formatUnits(withdrawed, 18));
+    expect(withdrawed).to.equal(hre.ethers.parseUnits("1100", "ether"));
+
+    tokenInPool = await nodeReward.tokenInPool();
+    console.log("tokenInPool:\t\t%d", ethers.formatUnits(tokenInPool, 18));
+    expect(tokenInPool).to.equal(hre.ethers.parseUnits("1000", "ether"));
+
     withdrawableBalance = await nodeReward.withdrawableBalance(staker1.address);
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
@@ -215,16 +237,30 @@ describe("NodeRewardV1 Contract Test", function () {
     schedules = await nodeReward.connect(owner).getReleaseSchedules();
     expect(schedules.length).to.equal(0);
 
-    schedules = [{ duration: 60, rate: BigInt(0.25e18) }, { duration: 90, rate: BigInt(0.35e18) }, { duration: 120, rate: BigInt(0.5e18) }, { duration: 150, rate: BigInt(0.75e18) }, { duration: 180, rate: BigInt(1e18) }]
+    schedules = [{ duration: 60, rate: BigInt(0.25e18) }, { duration: 90, rate: BigInt(0.25e18) }, { duration: 120, rate: BigInt(0.5e18) }]
     await nodeReward.connect(owner).setReleaseSchedules(schedules);
-
     schedules = await nodeReward.connect(owner).getReleaseSchedules();
-    expect(schedules.length).to.equal(5);
+    expect(schedules.length).to.equal(3);
     for (let i = 0; i < schedules.length; i++) {
       schedule = schedules[i]
       console.log("idx=%d, duration=%d,rate=%d",
         i, schedule.duration, schedule.rate);
     }
+
+    console.log("--setReleaseSchedules--");
+
+    schedules = [{ duration: 60, rate: BigInt(0.25e18) }, { duration: 90, rate: BigInt(0.35e18) }, { duration: 120, rate: BigInt(0.5e18) }, { duration: 150, rate: BigInt(0.75e18) }, { duration: 180, rate: BigInt(1e18) }]
+    await nodeReward.connect(owner).setReleaseSchedules(schedules);
+
+    schedules2 = await nodeReward.connect(owner).getReleaseSchedules();
+    // expect(schedules.length).to.equal(5);
+    for (let i = 0; i < schedules2.length; i++) {
+      schedule = schedules2[i]
+      console.log("idx=%d, duration=%d,rate=%d",
+        i, schedule.duration, schedule.rate);
+    }
+    expect(schedules2[1].duration).to.equal(BigInt(90));
+    expect(schedules2[1].rate).to.equal(BigInt(0.35e18));
 
     await rewardToken.connect(staker1).approve(nodeReward, BigInt(1000e18));
     await nodeReward.connect(staker1).deposit("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(1000e18));
@@ -333,8 +369,8 @@ describe("NodeRewardV1 Contract Test", function () {
   });
 
 
-  it("Should transfer token to contract", async function () {
-    const { rewardToken, nodeReward, scheduleRelease, owner, staker1, staker2, manager } = await loadFixture(
+  it("Should claim tokens from contract", async function () {
+    const { rewardToken, nodeReward, scheduleRelease, owner, staker1, staker2, manager, test1, test2, nodeBind } = await loadFixture(
       deployContractFixture
     );
 
@@ -351,6 +387,53 @@ describe("NodeRewardV1 Contract Test", function () {
     expect(contractBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
 
     console.log("contractBalance:\t%d", ethers.formatUnits(contractBalance, 18));
+
+    await expect(nodeBind.connect(staker1).bindNode("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", staker1.address, "a01231", makeBindSign(manager, '16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU', staker1.address.toLowerCase(), "a01231")))
+      .to.emit(nodeBind, "Bind")
+      .withArgs(staker1.address,
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+
+    await rewardToken.connect(owner).approve(nodeReward, BigInt(100e18));
+    await expect(nodeReward.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(40e18)))
+      .to.emit(nodeReward, "TransferReward")
+      .withArgs(owner.address,
+        hre.ethers.parseUnits("40", "ether"),
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+
+    claimableBalance = await nodeReward.claimableBalance(staker1.address);
+    console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
+    expect(claimableBalance).to.equal(hre.ethers.parseUnits("40", "ether"));
+
+    await expect(nodeReward.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(60e18)))
+      .to.emit(nodeReward, "TransferReward")
+      .withArgs(owner.address,
+        hre.ethers.parseUnits("60", "ether"),
+        "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
+
+    claimableBalance = await nodeReward.claimableBalance(staker1.address);
+    console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
+    expect(claimableBalance).to.equal(hre.ethers.parseUnits("100", "ether"));
+
+
+    await nodeReward.connect(owner).setCanWithdraw(false);
+    await expect(nodeReward.connect(staker1).claim(staker1.address, staker2.address))
+      .to.be.revertedWith("withdrawls and claims have been banned");
+
+    await nodeReward.connect(owner).setCanWithdraw(true);
+    await expect(nodeReward.connect(staker2).claim(staker1.address, staker2.address))
+      .to.be.revertedWith("beneficiary is invalid");
+
+    await expect(nodeReward.connect(staker1).claim(staker1.address, staker2.address))
+      .to.emit(nodeReward, "Claimed")
+      .withArgs(staker1.address,
+        staker2.address,
+        hre.ethers.parseUnits("100", "ether"));
+    claimed = await nodeReward.claimed(staker1.address);
+    console.log("claimed:\t\t%d", ethers.formatUnits(claimed, 18));
+    expect(claimed).to.equal(hre.ethers.parseUnits("100", "ether"));
+    claimableBalance = await nodeReward.claimableBalance(staker1.address);
+    console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
+    expect(claimableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
   });
 

@@ -11,7 +11,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./StakingToken.sol";
 
 // import "hardhat/console.sol";
 
@@ -50,7 +49,7 @@ contract NodeRewardV1 is ReentrancyGuard {
 
     address public immutable releaseContract; //contract address for release. Will be designated as ReleaseVestingV1 (has been audited) contract address
 
-    uint256 public tokenInPool; // total statked amount
+    uint256 public tokenInPool; // total staked amount
 
     address public owner; // address of the owner
 
@@ -67,9 +66,6 @@ contract NodeRewardV1 is ReentrancyGuard {
         // rate
         uint256 rate;
     }
-
-    // Info of each node that stakes tokens.
-    // mapping(string => NodeInfo) public nodeInfo;
 
     ReleaseSchedule[] internal releaseSchedules;
 
@@ -97,12 +93,7 @@ contract NodeRewardV1 is ReentrancyGuard {
         uint256 duration
     );
 
-    event Claimed(
-        address sender,
-        address beneficiary,
-        uint256 rewardAmount,
-        uint256 interestAmount
-    );
+    event Claimed(address sender, address beneficiary, uint256 rewardAmount);
 
     event TransferReward(address from, uint256 amount, string nodeId);
 
@@ -168,7 +159,8 @@ contract NodeRewardV1 is ReentrancyGuard {
     function setReleaseSchedules(
         ReleaseSchedule[] memory _schedules
     ) public onlyOwner {
-        for (uint256 i = 0; i < releaseSchedules.length; i++) {
+        uint256 len = releaseSchedules.length;
+        for (uint256 i = 0; i < len; i++) {
             releaseSchedules.pop();
         }
         for (uint256 i = 0; i < _schedules.length; i++) {
@@ -226,6 +218,11 @@ contract NodeRewardV1 is ReentrancyGuard {
         return stakerAccount.amount;
     }
 
+    function claimed(address _staker) external view returns (uint256) {
+        AccountInfo memory stakerAccount = unlockedAccounts[_staker];
+        return stakerAccount.claimed;
+    }
+
     // Claim tokens from contract.
     function claim(
         address _staker,
@@ -240,22 +237,16 @@ contract NodeRewardV1 is ReentrancyGuard {
 
         AccountInfo storage stakerAccount = unlockedAccounts[_staker];
         uint256 accountAmount = stakerAccount.amount;
-        uint256 totalAmount = stakerAccount.amount;
         // update unlocked account
         stakerAccount.amount = 0;
-        stakerAccount.claimed = stakerAccount.claimed.add(totalAmount);
+        stakerAccount.claimed = stakerAccount.claimed.add(accountAmount);
 
-        require(totalAmount > 0, "claimable balance is zero");
+        require(accountAmount > 0, "claimable balance is zero");
 
         // transfer the tokens to the _beneficiary
-        token.safeTransfer(_beneficiary, totalAmount);
+        token.safeTransfer(_beneficiary, accountAmount);
 
-        emit Claimed(
-            msg.sender,
-            _beneficiary,
-            accountAmount,
-            totalAmount.sub(accountAmount)
-        );
+        emit Claimed(msg.sender, _beneficiary, accountAmount);
     }
 
     // Deposit tokens to contract
@@ -287,6 +278,11 @@ contract NodeRewardV1 is ReentrancyGuard {
     ) external view returns (uint256) {
         AccountInfo memory stakerAccount = lockedAccounts[_staker];
         return stakerAccount.amount;
+    }
+
+    function withdrawed(address _staker) external view returns (uint256) {
+        AccountInfo memory stakerAccount = lockedAccounts[_staker];
+        return stakerAccount.claimed;
     }
 
     // Withdraw staked tokens from contract.
@@ -321,9 +317,7 @@ contract NodeRewardV1 is ReentrancyGuard {
 
         require(withdrawableAmount > 0 && lockDays >= 0, "invalid duration");
 
-        // require(tokenInPool >= _amount, "insufficient balance");
-
-        // tokenInPool = tokenInPool.sub(withdrawableBalance);
+        tokenInPool = tokenInPool.sub(_amount);
 
         // transfer withdrawable tokens to another contract.
         SafeERC20.safeIncreaseAllowance(
