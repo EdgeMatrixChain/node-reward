@@ -423,23 +423,9 @@ contract NodeStakeV6 is ReentrancyGuard {
     ) internal view returns (uint256, uint256, uint256) {
         uint256 withdrawableBalance = _schedule.amountTotal;
 
-        // calculate balance by block.timestamp (<30days:0%, <60days:25%, <90days:35%, <120days:50%, <150days:75%, >=150days:100%)
         if (_schedule.withdrawed > 0) {
             return (0, 0, _schedule.amountTotal);
         } else {
-            if (block.timestamp < _schedule.start) {
-                return (0, 0, _schedule.amountTotal);
-            } else if (block.timestamp < _schedule.start.add(30 days)) {
-                return (0, 0, _schedule.amountTotal);
-            } else if (block.timestamp < _schedule.start.add(60 days)) {
-                withdrawableBalance = withdrawableBalance.mul(25).div(100);
-            } else if (block.timestamp < _schedule.start.add(90 days)) {
-                withdrawableBalance = withdrawableBalance.mul(35).div(100);
-            } else if (block.timestamp < _schedule.start.add(120 days)) {
-                withdrawableBalance = withdrawableBalance.mul(50).div(100);
-            } else if (block.timestamp < _schedule.start.add(150 days)) {
-                withdrawableBalance = withdrawableBalance.mul(75).div(100);
-            }
             uint256 passed = (block.timestamp.sub(_schedule.start)).div(
                 30 days
             );

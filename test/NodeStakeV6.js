@@ -84,7 +84,14 @@ describe("NodeStakeV6 Contract Test", function () {
     await expect(nodeStake.connect(staker1).setLimit(BigInt(100e18)))
       .to.be.revertedWith("caller is not the owner");
 
-    await nodeStake.connect(owner).setLimit(BigInt(100e18));
+    await nodeStake.connect(owner).transferOwnership(staker1);
+
+    await expect(nodeStake.connect(owner).setLimit(BigInt(100e18)))
+      .to.be.revertedWith("caller is not the owner");
+
+    await nodeStake.connect(staker1).setLimit(BigInt(100e18));
+
+    await nodeStake.connect(staker1).transferOwnership(owner);
 
     // deposit tokens 
     console.log("\n----staker1 bindNode 16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU----");
@@ -205,7 +212,7 @@ describe("NodeStakeV6 Contract Test", function () {
     [amountBalance, rewardBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
-    expect(amountBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
@@ -220,7 +227,7 @@ describe("NodeStakeV6 Contract Test", function () {
     [amountBalance, rewardBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
-    expect(amountBalance).to.equal(hre.ethers.parseUnits("250", "ether"));
+    expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("10", "ether"));
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
@@ -235,7 +242,7 @@ describe("NodeStakeV6 Contract Test", function () {
     [amountBalance, rewardBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
-    expect(amountBalance).to.equal(hre.ethers.parseUnits("350", "ether"));
+    expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("20", "ether"));
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
@@ -250,7 +257,7 @@ describe("NodeStakeV6 Contract Test", function () {
     [amountBalance, rewardBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
-    expect(amountBalance).to.equal(hre.ethers.parseUnits("500", "ether"));
+    expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("30", "ether"));
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
@@ -265,7 +272,7 @@ describe("NodeStakeV6 Contract Test", function () {
     [amountBalance, rewardBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
-    expect(amountBalance).to.equal(hre.ethers.parseUnits("750", "ether"));
+    expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("40", "ether"));
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
     console.log("claimableBalance:\t%d", ethers.formatUnits(claimableBalance, 18));
@@ -537,12 +544,12 @@ describe("NodeStakeV6 Contract Test", function () {
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
-    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
     expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
 
-    await expect(nodeStake.connect(staker1).withdraw(0, staker1.address))
-      .to.be.revertedWith("withdrawableBalance is zero");
+    // await expect(nodeStake.connect(staker1).withdraw(0, staker1.address))
+    //   .to.be.revertedWith("withdrawableBalance is zero");
     await expect(nodeStake.connect(staker2).claim(staker1.address, staker2.address))
       .to.be.revertedWith("beneficiary is invalid");
     await expect(nodeStake.connect(staker2).withdraw(0, staker2.address))
@@ -559,7 +566,7 @@ describe("NodeStakeV6 Contract Test", function () {
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
-    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("250", "ether"));
+    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("10", "ether"));
 
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
@@ -614,7 +621,7 @@ describe("NodeStakeV6 Contract Test", function () {
       .to.emit(nodeStake, "Withdrawed")
       .withArgs(staker1.address,
         staker2.address,
-        hre.ethers.parseUnits("250", "ether"),
+        hre.ethers.parseUnits("1000", "ether"),
         0)
       .to.emit(nodeStake, "Claimed")
       .withArgs(staker1.address,
@@ -728,7 +735,7 @@ describe("NodeStakeV6 Contract Test", function () {
 
   });
 
-  it("Should withdrw 50% token by the staker who deposit", async function () {
+  it("Should withdrw token On 90th days after", async function () {
 
     const { rewardToken, nodeStake, scheduleRelease, owner, staker1, staker2, manager, test1, test2, stakingToken, nodeBind } = await loadFixture(
       deployContractFixture
@@ -793,12 +800,12 @@ describe("NodeStakeV6 Contract Test", function () {
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
-    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
     expect(amountBalance).to.equal(hre.ethers.parseUnits("1000", "ether"));
 
-    await expect(nodeStake.connect(staker1).withdraw(0, staker1.address))
-      .to.be.revertedWith("withdrawableBalance is zero");
+    // await expect(nodeStake.connect(staker1).withdraw(0, staker1.address))
+    //   .to.be.revertedWith("withdrawableBalance is zero");
     await expect(nodeStake.connect(staker2).claim(staker1.address, staker2.address))
       .to.be.revertedWith("beneficiary is invalid");
     await expect(nodeStake.connect(staker2).withdraw(0, staker2.address))
@@ -823,7 +830,7 @@ describe("NodeStakeV6 Contract Test", function () {
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
     console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
     console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
-    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("500", "ether")); // 500 = 1000 * 0.5
+    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("1000", "ether")); // 500 = 1000 * 0.5
     expect(rewardBalance).to.equal(hre.ethers.parseUnits("30", "ether")); // 30 = 1000 * 0.01 * 3
 
     claimableBalance = await nodeStake.claimableBalance(staker1.address);
@@ -836,13 +843,16 @@ describe("NodeStakeV6 Contract Test", function () {
       .withArgs(staker2.address,
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
+    // transfer interest to contract
+    await rewardToken.transfer(nodeStake.target, hre.ethers.parseUnits("30", 18));
+
     console.log("--withdraw %d tokens--", ethers.formatUnits(withdrawableBalance, 18));
     await stakingToken.connect(staker1).approve(nodeStake, BigInt(1000e18));
     await expect(nodeStake.connect(staker1).withdraw(0, test1.address))
       .to.emit(nodeStake, "Withdrawed")
       .withArgs(staker1.address,
         test1.address,
-        hre.ethers.parseUnits("500", "ether"),
+        hre.ethers.parseUnits("1000", "ether"),
         0)
       .to.emit(nodeStake, "Claimed")
       .withArgs(
@@ -857,8 +867,9 @@ describe("NodeStakeV6 Contract Test", function () {
       vesingSchedule = vesingScheduleList[i]
       console.log("vesingSchedule[%d]: beneficiary=%s, start=%d, duration=%d, durationUnits=%d, amountTotal=%d Ether",
         i, vesingSchedule.beneficiary, vesingSchedule.start, vesingSchedule.duration, vesingSchedule.durationUnits, ethers.formatEther(vesingSchedule.amountTotal));
-      expect(vesingSchedule.beneficiary).to.equal(test1.address);
     }
+    expect(vesingScheduleList[0].beneficiary).to.equal(test1.address);
+    expect(vesingScheduleList[0].amountTotal).to.equal(BigInt(1000e18));
 
     nodeBalanceType0 = await nodeStake.balanceOfNodeByDepositType(staker1.address, "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", 0);
     expect(nodeBalanceType0).to.equal(hre.ethers.parseUnits("0", "ether"));
@@ -869,6 +880,12 @@ describe("NodeStakeV6 Contract Test", function () {
     test1Balance = await rewardToken.balanceOf(test1);
     expect(test1Balance).to.equal(hre.ethers.parseUnits("30", "ether"));
 
+    [withdrawableBalance, rewardBalance, amountBalance] = await nodeStake.balanceOfSchedule(staker1.address, 0);
+    console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
+    console.log("rewardBalance:\t\t%d", ethers.formatUnits(rewardBalance, 18));
+    console.log("amountBalance:\t\t%d", ethers.formatUnits(amountBalance, 18));
+    expect(withdrawableBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
+    expect(rewardBalance).to.equal(hre.ethers.parseUnits("0", "ether"));
 
   });
 
