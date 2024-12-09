@@ -77,9 +77,13 @@ describe("NodeRewardV1 Contract Test", function () {
     expect(schedules.length).to.equal(0);
 
     schedules = [{ duration: 60, rate: BigInt(0.25e18) }, { duration: 90, rate: BigInt(0.35e18) }, { duration: 120, rate: BigInt(0.5e18) }, { duration: 150, rate: BigInt(0.75e18) }, { duration: 180, rate: BigInt(1e18) }]
+
+    await expect(nodeReward.connect(staker1).setReleaseSchedules(schedules))
+      .to.be.revertedWith("caller is not the owner");
+
     await nodeReward.connect(owner).setReleaseSchedules(schedules);
 
-    schedules = await nodeReward.connect(owner).getReleaseSchedules();
+    schedules = await nodeReward.connect(staker1).getReleaseSchedules();
     expect(schedules.length).to.equal(5);
     for (let i = 0; i < schedules.length; i++) {
       schedule = schedules[i]
@@ -117,8 +121,10 @@ describe("NodeRewardV1 Contract Test", function () {
       .to.emit(nodeReward, "Withdrawed")
       .withArgs(staker1.address,
         test1.address,
-        hre.ethers.parseUnits("25", "ether"),
-        60);
+        hre.ethers.parseUnits("100", "ether"),
+        60,
+        BigInt(25e18),
+        BigInt(0.25e18));
 
     withdrawed = await nodeReward.withdrawed(staker1.address);
     console.log("withdrawed:\t\t%d", ethers.formatUnits(withdrawed, 18));
@@ -180,8 +186,10 @@ describe("NodeRewardV1 Contract Test", function () {
       .to.emit(nodeReward, "Withdrawed")
       .withArgs(staker1.address,
         test1.address,
-        hre.ethers.parseUnits("250", "ether"),
-        60);
+        hre.ethers.parseUnits("1000", "ether"),
+        60,
+        BigInt(250e18),
+        BigInt(0.25e18));
 
     withdrawed = await nodeReward.withdrawed(staker1.address);
     console.log("withdrawed:\t\t%d", ethers.formatUnits(withdrawed, 18));
@@ -278,8 +286,10 @@ describe("NodeRewardV1 Contract Test", function () {
       .to.emit(nodeReward, "Withdrawed")
       .withArgs(staker1.address,
         test1.address,
-        hre.ethers.parseUnits("35", "ether"),
-        90);
+        hre.ethers.parseUnits("100", "ether"),
+        90,
+        BigInt(35e18),
+        BigInt(0.35e18));
     vesingScheduleList = await scheduleRelease.getVestingSchedule(test1.address);
     expect(vesingScheduleList.length).to.equal(1);
 
@@ -297,8 +307,10 @@ describe("NodeRewardV1 Contract Test", function () {
       .to.emit(nodeReward, "Withdrawed")
       .withArgs(staker1.address,
         test1.address,
-        hre.ethers.parseUnits("50", "ether"),
-        120);
+        hre.ethers.parseUnits("100", "ether"),
+        120,
+        BigInt(50e18),
+        BigInt(0.50e18));
     withdrawableBalance = await nodeReward.withdrawableBalance(staker1.address);
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
 
@@ -319,8 +331,10 @@ describe("NodeRewardV1 Contract Test", function () {
       .to.emit(nodeReward, "Withdrawed")
       .withArgs(staker1.address,
         test1.address,
-        hre.ethers.parseUnits("75", "ether"),
-        150);
+        hre.ethers.parseUnits("100", "ether"),
+        150,
+        BigInt(75e18),
+        BigInt(0.75e18));
     withdrawableBalance = await nodeReward.withdrawableBalance(staker1.address);
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
 
@@ -342,7 +356,9 @@ describe("NodeRewardV1 Contract Test", function () {
       .withArgs(staker1.address,
         test1.address,
         hre.ethers.parseUnits("100", "ether"),
-        180);
+        180,
+        BigInt(100e18),
+        BigInt(1e18));
     withdrawableBalance = await nodeReward.withdrawableBalance(staker1.address);
     console.log("withdrawableBalance:\t%d", ethers.formatUnits(withdrawableBalance, 18));
 
@@ -396,7 +412,7 @@ describe("NodeRewardV1 Contract Test", function () {
     await rewardToken.connect(owner).approve(nodeReward, BigInt(100e18));
     await expect(nodeReward.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(40e18)))
       .to.emit(nodeReward, "TransferReward")
-      .withArgs(owner.address,
+      .withArgs(staker1.address,
         hre.ethers.parseUnits("40", "ether"),
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 
@@ -406,7 +422,7 @@ describe("NodeRewardV1 Contract Test", function () {
 
     await expect(nodeReward.connect(owner).transferRewardTo("16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU", BigInt(60e18)))
       .to.emit(nodeReward, "TransferReward")
-      .withArgs(owner.address,
+      .withArgs(staker1.address,
         hre.ethers.parseUnits("60", "ether"),
         "16Uiu2HAm2xsgciiJfwP8E1o8ckAw4QJAgG4wsjXqCBgdZVVVLAZU");
 

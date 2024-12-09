@@ -90,12 +90,14 @@ contract NodeRewardV1 is ReentrancyGuard {
         address sender,
         address beneficiary,
         uint256 amount,
-        uint256 duration
+        uint256 duration,
+        uint256 withdrawed,
+        uint256 rate
     );
 
     event Claimed(address sender, address beneficiary, uint256 rewardAmount);
 
-    event TransferReward(address from, uint256 amount, string nodeId);
+    event TransferReward(address holder, uint256 amount, string nodeId);
 
     event OwnershipTransferred(
         address indexed previousOwner,
@@ -173,7 +175,6 @@ contract NodeRewardV1 is ReentrancyGuard {
     function getReleaseSchedules()
         public
         view
-        onlyOwner
         returns (ReleaseSchedule[] memory)
     {
         return releaseSchedules;
@@ -209,7 +210,7 @@ contract NodeRewardV1 is ReentrancyGuard {
         AccountInfo storage stakerAccount = unlockedAccounts[beneficiary];
         stakerAccount.amount = stakerAccount.amount.add(_amount);
 
-        emit TransferReward(msg.sender, _amount, _nodeId);
+        emit TransferReward(beneficiary, _amount, _nodeId);
     }
 
     // Balance of claimable tokens
@@ -306,10 +307,12 @@ contract NodeRewardV1 is ReentrancyGuard {
 
         uint256 withdrawableAmount = 0;
         uint256 lockDays = 0;
+        uint256 rate = 0;
         for (uint256 i = 0; i < releaseSchedules.length; i++) {
             ReleaseSchedule memory schedule = releaseSchedules[i];
             if (schedule.duration == _duration) {
                 lockDays = schedule.duration.sub(30);
+                rate = schedule.rate;
                 withdrawableAmount = _amount.mul(schedule.rate).div(1e18);
                 break;
             }
@@ -339,8 +342,10 @@ contract NodeRewardV1 is ReentrancyGuard {
         emit Withdrawed(
             msg.sender,
             _beneficiary,
+            _amount,
+            _duration,
             withdrawableAmount,
-            _duration
+            rate
         );
     }
 
