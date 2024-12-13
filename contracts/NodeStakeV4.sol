@@ -148,7 +148,7 @@ contract NodeStakeV4 is ReentrancyGuard {
     );
 
     event VestingScheduleCreated(
-        string indexed nodeId,
+        string nodeId,
         uint256 start,
         uint256 duration,
         uint256 amountTotal,
@@ -438,9 +438,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         VestingSchedule[] memory schedules = vestingSchedules[_staker];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule memory schedule = schedules[i];
-            (, uint256 rewardBalance, ) = _vestedAmount(
-                schedule
-            );
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             balance = balance.add(rewardBalance);
         }
         return balance;
@@ -591,9 +589,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         VestingSchedule[] memory schedules = vestingSchedules[_staker];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule memory schedule = schedules[i];
-            (, uint256 rewardBalance, ) = _vestedAmount(
-                schedule
-            );
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             balance = balance.add(rewardBalance);
         }
         return balance;
@@ -632,9 +628,7 @@ contract NodeStakeV4 is ReentrancyGuard {
         VestingSchedule[] storage schedules = vestingSchedules[_staker];
         for (uint256 i = 0; i < schedules.length; i++) {
             VestingSchedule storage schedule = schedules[i];
-            (, uint256 rewardBalance, ) = _vestedAmount(
-                schedule
-            );
+            (, uint256 rewardBalance, ) = _vestedAmount(schedule);
             // update schedule's amount
             schedule.rewarded = schedule.rewarded.add(rewardBalance);
 

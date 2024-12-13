@@ -122,7 +122,7 @@ contract NodeStakeNativeV1 is ReentrancyGuard {
     );
 
     event VestingScheduleCreated(
-        string indexed nodeId,
+        string nodeId,
         uint256 start,
         uint256 duration,
         uint256 amountTotal,

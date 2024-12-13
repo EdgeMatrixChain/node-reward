@@ -93,7 +93,6 @@ contract NodeStakeV5 is ReentrancyGuard {
     // Unlocked account of each staker.
     mapping(address => AccountInfo) internal unlockedAccounts;
 
-
     // Modifier to check token allowance
     modifier checkTokenAllowance(uint amount) {
         require(
@@ -137,7 +136,7 @@ contract NodeStakeV5 is ReentrancyGuard {
     );
 
     event VestingScheduleCreated(
-        string indexed nodeId,
+        string nodeId,
         uint256 start,
         uint256 duration,
         uint256 amountTotal,
